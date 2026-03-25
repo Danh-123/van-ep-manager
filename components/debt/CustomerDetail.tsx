@@ -3,8 +3,21 @@
 import { format } from 'date-fns';
 import { History, ReceiptText } from 'lucide-react';
 
-import { type DebtTicket } from '@/app/(dashboard)/debt/actions';
 import { vi } from '@/lib/translations/vi';
+
+type DebtTicket = {
+  id: number;
+  customer: string;
+  ngay: string;
+  xeSo: string;
+  thanhTien: number;
+  daTra: number;
+  conNo: number;
+  createdAt: string;
+  lastPaymentDate: string | null;
+  status: 'DaThanhToan' | 'ThanhToanMotPhan' | 'ChuaThanhToan' | 'QuaHan';
+  overdue: boolean;
+};
 
 type CustomerDetailProps = {
   tickets: DebtTicket[];

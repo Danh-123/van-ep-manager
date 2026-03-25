@@ -6,14 +6,41 @@ import { Download, Search } from 'lucide-react';
 import { useMemo, useState, useTransition } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import {
-  getDebtReport,
-  type DebtTicket,
-} from '@/app/(dashboard)/debt/actions';
 import { getPaymentHistory, type TicketPaymentHistory } from '@/app/(dashboard)/trucks/actions';
 import DebtTable from '@/components/debt/DebtTable';
 import HistoryModal from '@/components/trucks/HistoryModal';
 import PaymentModal from '@/components/trucks/PaymentModal';
+
+type DebtTicket = {
+  id: number;
+  customer: string;
+  ngay: string;
+  xeSo: string;
+  thanhTien: number;
+  daTra: number;
+  conNo: number;
+  createdAt: string;
+  lastPaymentDate: string | null;
+  status: 'DaThanhToan' | 'ThanhToanMotPhan' | 'ChuaThanhToan' | 'QuaHan';
+  overdue: boolean;
+};
+
+type CustomerDebtGroup = {
+  customer: string;
+  totalDebt: number;
+  overdue: boolean;
+  tickets: DebtTicket[];
+};
+
+type DebtReportResponse = {
+  groups: CustomerDebtGroup[];
+  totalDebt: number;
+  customerOptions: string[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('vi-VN', {
@@ -45,18 +72,24 @@ export default function DebtPage() {
   const debtQuery = useQuery({
     queryKey: ['debt-report', search, customerFilter, page, pageSize],
     queryFn: async () => {
-      const result = await getDebtReport({
-        search,
-        customer: customerFilter,
-        page,
-        pageSize,
+      const params = new URLSearchParams({
+        search: search || '',
+        customer: customerFilter || '',
+        page: String(page),
+        pageSize: String(pageSize),
       });
 
-      if (!result.success) {
-        throw new Error(result.error);
+      const response = await fetch(`/api/debt?${params}`, { cache: 'no-store' });
+      if (!response.ok) {
+        throw new Error('Không thể tải báo cáo công nợ');
       }
 
-      return result.data;
+      const json = (await response.json()) as { success: boolean; error?: string; data?: DebtReportResponse };
+      if (!json.success || !json.data) {
+        throw new Error(json.error || 'Không thể tải báo cáo công nợ');
+      }
+
+      return json.data;
     },
     staleTime: 60_000,
   });

@@ -3,9 +3,28 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Fragment, memo } from 'react';
 
-import { type CustomerDebtGroup, type DebtTicket } from '@/app/(dashboard)/debt/actions';
-
 import CustomerDetail from './CustomerDetail';
+
+type DebtTicket = {
+  id: number;
+  customer: string;
+  ngay: string;
+  xeSo: string;
+  thanhTien: number;
+  daTra: number;
+  conNo: number;
+  createdAt: string;
+  lastPaymentDate: string | null;
+  status: 'DaThanhToan' | 'ThanhToanMotPhan' | 'ChuaThanhToan' | 'QuaHan';
+  overdue: boolean;
+};
+
+type CustomerDebtGroup = {
+  customer: string;
+  totalDebt: number;
+  overdue: boolean;
+  tickets: DebtTicket[];
+};
 
 type DebtTableProps = {
   groups: CustomerDebtGroup[];

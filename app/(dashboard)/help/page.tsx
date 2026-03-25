@@ -1,335 +1,180 @@
-'use client'
+'use client';
 
-import { ChevronDown, FileText, HelpCircle, Mail, Phone, PlayCircle, Search } from 'lucide-react'
-import Link from 'next/link'
-import { useState } from 'react'
+import { useState } from 'react';
+import FeatureList from '@/components/help/FeatureList';
+import QuickGuide from '@/components/help/QuickGuide';
 
-interface FAQItem {
-  category: string
-  question: string
-  answer: string
-}
-
-const faqData: FAQItem[] = [
-  {
-    category: 'Đăng nhập & Tài khoản',
-    question: 'Mất mật khẩu phải làm sao?',
-    answer: 'Vào trang đăng nhập, nhấp "Quên mật khẩu?", nhập email. Hệ thống sẽ gửi link reset qua email. Check thư rác nếu không thấy. Click link & đặt mật khẩu mới.'
-  },
-  {
-    category: 'Đăng nhập & Tài khoản',
-    question: 'Tài khoản của tôi bị khóa, phải làm sao?',
-    answer: 'Liên hệ Admin hoặc phòng IT để mở khóa tài khoản. Cung cấp email hoặc mã công nhân của bạn.'
-  },
-  {
-    category: 'Lương & Chấm công',
-    question: 'Cách xem lương tháng này?',
-    answer: 'Menu sidebar → "Lương của tôi" → Chọn tháng từ dropdown → Xem chi tiết lương từng ngày.'
-  },
-  {
-    category: 'Lương & Chấm công',
-    question: 'Làm sao xuất báo cáo lương?',
-    answer: 'Vào "Lương của tôi" → Chọn tháng → Nhấp "Xuất Excel" → File .xlsx sẽ download về máy tính.'
-  },
-  {
-    category: 'Lương & Chấm công',
-    question: 'Chấm công chính xác không? Sao lương khác tháng trước?',
-    answer: 'Lương được tính dựa trên chấm công hàng ngày. Nếu bạn thấy không đúng, liên hệ Kế toán để kiểm tra.'
-  },
-  {
-    category: 'Lương & Chấm công',
-    question: 'Lương làm thêm được tính cao hơn không?',
-    answer: 'Tùy cấu hình công ty. Hỏi Kế toán hoặc Admin về quy định lương làm thêm.'
-  },
-  {
-    category: 'Import dữ liệu',
-    question: 'Import dữ liệu cũ như thế nào?',
-    answer: 'Menu → "Import du liệu" (Admin only) → Chọn file Excel → Map cột → Xác thực → Dry-run xem trước → Import.'
-  },
-  {
-    category: 'Import dữ liệu',
-    question: 'Import bị lỗi định dạng ngày, sửa thế nào?',
-    answer: 'Kiểm tra file Excel, đảm bảo ngày ở format DD/MM/YYYY hoặc YYYY-MM-DD. Sửa lại file, re-upload.'
-  },
-  {
-    category: 'Tính năng khác',
-    question: 'Phiếu cân dùng để làm gì?',
-    answer: 'Phiếu cân ghi lại khối lượng hàng được cân. Công ty dùng để quản lý sản lượng và audit hàng hoá.'
-  },
-  {
-    category: 'Tính năng khác',
-    question: 'Thanh toán lương những cách nào?',
-    answer: 'Hệ thống hỗ trợ 3 cách: Tiền mặt, Chuyển khoản, Khác. Kế toán sẽ chọn hình thức khi thanh toán.'
-  },
-  {
-    category: 'Admin',
-    question: 'Cách tạo tài khoản mới cho nhân viên?',
-    answer: 'Menu → "Quản lý người dùng" (Admin only) → "Thêm người dùng" → Nhập email, tên, role → "Tạo".'
-  },
-  {
-    category: 'Admin',
-    question: 'Backup dữ liệu như thế nào?',
-    answer: 'Menu → Cấu hình → Backup. Hoặc xuất toàn bộ data thành Excel. Hoặc liên hệ IT để backup tự động.'
-  },
-  {
-    category: 'Admin',
-    question: 'Sửa lương tháng trước có ảnh hưởng gì không?',
-    answer: 'Có. Sửa dữ liệu ngày cũ sẽ tính lại lương tháng đó tự động. Hệ thống sẽ cập nhật dashboard.'
-  }
-]
-
-const categoryIcons: Record<string, string> = {
-  'Đăng nhập & Tài khoản': '🔐',
-  'Lương & Chấm công': '💰',
-  'Import dữ liệu': '📥',
-  'Tính năng khác': '⚙️',
-  'Admin': '👨‍💼'
-}
+type TabType = 'overview' | 'features' | 'guide';
 
 export default function HelpPage() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
-
-  const categories = Array.from(new Set(faqData.map((item) => item.category)))
-
-  const filteredFAQ = faqData.filter((item) => {
-    const matchesCategory = !selectedCategory || item.category === selectedCategory
-    const matchesSearch = !searchQuery || item.question.toLowerCase().includes(searchQuery.toLowerCase()) || item.answer.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesCategory && matchesSearch
-  })
-
-  const toggleExpanded = (index: number) => {
-    const newExpanded = new Set(expandedItems)
-    if (newExpanded.has(index)) {
-      newExpanded.delete(index)
-    } else {
-      newExpanded.add(index)
-    }
-    setExpandedItems(newExpanded)
-  }
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50'>
-      {/* Header */}
-      <div className='bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-12'>
-        <div className='container mx-auto px-4'>
-          <div className='flex items-center gap-3 mb-4'>
-            <HelpCircle size={32} />
-            <h1 className='text-4xl font-bold'>Trung tâm Hỗ trợ</h1>
-          </div>
-          <p className='text-blue-100 text-lg'>Tìm câu trả lời cho câu hỏi của bạn</p>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className='container mx-auto px-4 py-12'>
-        {/* Search Bar */}
-        <div className='mb-8'>
-          <div className='relative'>
-            <Search className='absolute left-4 top-3 text-gray-400' size={20} />
-            <input
-              type='text'
-              placeholder='Tìm kiếm câu hỏi...'
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className='w-full pl-12 pr-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200'
-            />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      {/* Hero Section */}
+      <section className="border-b border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-slate-900">
+              📖 Trợ giúp & Hướng dẫn
+            </h1>
+            <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
+              Toàn Tâm Phát - Hệ thống quản lý sản xuất gỗ toàn diện
+            </p>
+            <p className="mt-2 text-slate-500 text-sm">
+              Quản lý chấm công, tính lương, theo dõi công nợ, chế độ kế toán tích hợp
+            </p>
           </div>
         </div>
+      </section>
 
-        <div className='grid grid-cols-1 lg:grid-cols-4 gap-8'>
-          {/* Sidebar - Categories */}
-          <div className='lg:col-span-1'>
-            <div className='bg-white rounded-lg shadow-md p-6 sticky top-4'>
-              <h2 className='font-bold text-lg mb-4 text-gray-800'>Danh mục</h2>
-              <button
-                onClick={() => setSelectedCategory(null)}
-                className={`w-full text-left px-4 py-2 rounded-lg mb-2 transition-colors ${
-                  selectedCategory === null
-                    ? 'bg-blue-100 text-blue-700 font-semibold'
-                    : 'hover:bg-gray-100 text-gray-700'
-                }`}
-              >
-                Tất cả
-              </button>
-
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`w-full text-left px-4 py-2 rounded-lg mb-2 transition-colors ${
-                    selectedCategory === category
-                      ? 'bg-blue-100 text-blue-700 font-semibold'
-                      : 'hover:bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  <span className='mr-2'>{categoryIcons[category] || '📌'}</span>
-                  {category}
-                </button>
-              ))}
-            </div>
-
-            {/* Quick Links */}
-            <div className='bg-white rounded-lg shadow-md p-6 mt-6'>
-              <h2 className='font-bold text-lg mb-4 text-gray-800'>Tài liệu</h2>
-              <div className='space-y-3'>
-                <Link
-                  href='https://github.com/your-repo/blob/main/USER_GUIDE.md'
-                  target='_blank'
-                  className='flex items-center gap-3 text-gray-700 hover:text-blue-600 transition-colors'
-                >
-                  <FileText size={18} />
-                  <span className='text-sm'>Hướng dẫn sử dụng</span>
-                </Link>
-                <Link
-                  href='https://github.com/your-repo/blob/main/ADMIN_GUIDE.md'
-                  target='_blank'
-                  className='flex items-center gap-3 text-gray-700 hover:text-blue-600 transition-colors'
-                >
-                  <FileText size={18} />
-                  <span className='text-sm'>Hướng dẫn Admin</span>
-                </Link>
-                <Link
-                  href='https://github.com/your-repo/blob/main/TECHNICAL_GUIDE.md'
-                  target='_blank'
-                  className='flex items-center gap-3 text-gray-700 hover:text-blue-600 transition-colors'
-                >
-                  <FileText size={18} />
-                  <span className='text-sm'>Hướng dẫn kỹ thuật</span>
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content - FAQ */}
-          <div className='lg:col-span-3'>
-            {/* FAQ Items */}
-            <div className='space-y-4'>
-              {filteredFAQ.length > 0 ? (
-                filteredFAQ.map((item, index) => (
-                  <div
-                    key={index}
-                    className='bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow'
-                  >
-                    <button
-                      onClick={() => toggleExpanded(index)}
-                      className='w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors'
-                    >
-                      <div className='flex items-center gap-3 text-left flex-1'>
-                        <span className='text-2xl'>{categoryIcons[item.category] || '📌'}</span>
-                        <h3 className='font-semibold text-gray-800 text-lg'>{item.question}</h3>
-                      </div>
-                      <ChevronDown
-                        size={20}
-                        className={`text-gray-400 transition-transform ${
-                          expandedItems.has(index) ? 'rotate-180' : ''
-                        }`}
-                      />
-                    </button>
-
-                    {expandedItems.has(index) && (
-                      <div className='px-6 py-4 bg-gray-50 border-t border-gray-200'>
-                        <p className='text-gray-700 leading-relaxed'>{item.answer}</p>
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className='bg-white rounded-lg shadow-md p-8 text-center'>
-                  <HelpCircle size={48} className='mx-auto text-gray-300 mb-4' />
-                  <p className='text-gray-500 text-lg'>
-                    Không tìm thấy kết quả cho: &quot;{searchQuery}&quot;
-                  </p>
-                  <p className='text-gray-400 mt-2'>Thử tìm kiếm với từ khóa khác</p>
-                </div>
-              )}
-            </div>
-
-            {/* Tutorial Section */}
-            <div className='mt-12 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-8 border border-green-200'>
-              <div className='flex items-center gap-3 mb-4'>
-                <PlayCircle size={28} className='text-green-600' />
-                <h2 className='text-2xl font-bold text-gray-800'>Video hướng dẫn</h2>
-              </div>
-              <p className='text-gray-700 mb-6'>
-                Xem các video hướng dẫn chi tiết về cách sử dụng hệ thống
-              </p>
-
-              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                {[
-                  { title: 'Cách đăng nhập', duration: '2:15', status: 'coming-soon' },
-                  { title: 'Xem lương cá nhân', duration: '3:45', status: 'coming-soon' },
-                  { title: 'Xuất báo cáo Excel', duration: '5:20', status: 'coming-soon' },
-                  { title: 'Import dữ liệu', duration: '8:30', status: 'coming-soon' }
-                ].map((video, idx) => (
-                  <div
-                    key={idx}
-                    className='bg-white rounded-lg p-4 flex items-center gap-4 hover:shadow-md transition-shadow'
-                  >
-                    <div className='bg-gray-200 rounded-lg p-3 flex-shrink-0'>
-                      <PlayCircle size={24} className='text-gray-600' />
-                    </div>
-                    <div className='flex-1'>
-                      <p className='font-semibold text-gray-800'>{video.title}</p>
-                      <p className='text-sm text-gray-500'>{video.duration}</p>
-                    </div>
-                    {video.status === 'coming-soon' && (
-                      <span className='text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded'>
-                        Sắp có
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Contact Section */}
-            <div className='mt-12 bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-8 border border-orange-200'>
-              <h2 className='text-2xl font-bold text-gray-800 mb-4'>Không tìm thấy câu trả lời?</h2>
-              <p className='text-gray-700 mb-6'>Liên hệ với phòng IT hoặc Admin để nhận hỗ trợ trực tiếp</p>
-
-              <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                <div className='bg-white rounded-lg p-4 flex items-center gap-3 hover:shadow-md transition-shadow'>
-                  <Mail size={24} className='text-blue-600 flex-shrink-0' />
-                  <div>
-                    <p className='font-semibold text-gray-800'>Email</p>
-                    <p className='text-sm text-gray-600'>support@company.com</p>
-                  </div>
-                </div>
-
-                <div className='bg-white rounded-lg p-4 flex items-center gap-3 hover:shadow-md transition-shadow'>
-                  <Phone size={24} className='text-green-600 flex-shrink-0' />
-                  <div>
-                    <p className='font-semibold text-gray-800'>Điện thoại</p>
-                    <p className='text-sm text-gray-600'>028-1234-5678</p>
-                  </div>
-                </div>
-
-                <div className='bg-white rounded-lg p-4 flex items-center gap-3 hover:shadow-md transition-shadow'>
-                  <HelpCircle size={24} className='text-purple-600 flex-shrink-0' />
-                  <div>
-                    <p className='font-semibold text-gray-800'>Giờ làm việc</p>
-                    <p className='text-sm text-gray-600'>Thứ 2-6: 8:00-17:00</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+      {/* Tab Navigation */}
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-6xl px-4">
+          <div className="flex gap-1 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-6 py-4 font-medium transition-colors border-b-2 whitespace-nowrap ${
+                activeTab === 'overview'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              👋 Tổng quan hệ thống
+            </button>
+            <button
+              onClick={() => setActiveTab('features')}
+              className={`px-6 py-4 font-medium transition-colors border-b-2 whitespace-nowrap ${
+                activeTab === 'features'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              ✨ Tính năng
+            </button>
+            <button
+              onClick={() => setActiveTab('guide')}
+              className={`px-6 py-4 font-medium transition-colors border-b-2 whitespace-nowrap ${
+                activeTab === 'guide'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              📚 Hướng dẫn nhanh
+            </button>
           </div>
         </div>
-      </div>
+      </section>
+
+      {/* Content Section */}
+      <section className="mx-auto max-w-6xl px-4 py-12">
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-8 animate-fadeIn">
+            {/* System Description */}
+            <div className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+              <h2 className="text-2xl font-bold text-slate-900">🏭 Hệ thống Toàn Tâm Phát là gì?</h2>
+              <div className="mt-6 space-y-4 text-slate-600 leading-relaxed">
+                <p>
+                  Toàn Tâm Phát là một hệ thống quản lý sản xuất gỗ<strong className="text-slate-900"> toàn diện</strong> được thiết kế riêng cho các xưởng chế biến gỗ. Hệ thống giúp:
+                </p>
+                <ul className="space-y-2 ml-6 list-disc text-slate-600">
+                  <li>✅ <strong>Quản lý công nhân</strong> - Chấm công, tính lương tự động dựa trên sản lượng</li>
+                  <li>✅ <strong>Theo dõi sản xuất</strong> - Ghi nhận phiếu cân, loại gỗ, khối lượng từng đơn hàng</li>
+                  <li>✅ <strong>Quản lý công nợ</strong> - Tính công nợ tích lũy khách hàng, theo dõi thanh toán</li>
+                  <li>✅ <strong>Báo cáo tài chính</strong> - Xuất báo cáo lương, doanh số, công nợ theo tháng</li>
+                  <li>✅ <strong>Kiểm soát chất lượng</strong> - Nhật ký kiểm toán tất cả thay đổi dữ liệu</li>
+                </ul>
+
+                <p className="pt-4">
+                  Với <strong className="text-slate-900">giao diện thân thiện, quy trình làm việc đơn giản</strong>, bạn có thể bắt đầu sử dụng ngay mà không cần đào tạo lâu dài.
+                </p>
+              </div>
+            </div>
+
+            {/* For Different Roles */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-6">
+                <h3 className="text-lg font-bold text-blue-900">👨‍💼 Chủ xưởng</h3>
+                <p className="mt-3 text-sm text-blue-800 leading-relaxed">
+                  Xem dashboard tổng quát, thống kê doanh thu, lương, công nợ hàng ngày. Xuất báo cáo tài chính để quyết định.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-green-200 bg-green-50 p-6">
+                <h3 className="text-lg font-bold text-green-900">📊 Kế toán</h3>
+                <p className="mt-3 text-sm text-green-800 leading-relaxed">
+                  Quản lý dữ liệu chấm công, tính lương, theo dõi công nợ, sửa thưởng phạt, xuất Excel báo cáo.
+                </p>
+              </div>
+
+              <div className="rounded-lg border border-purple-200 bg-purple-50 p-6">
+                <h3 className="text-lg font-bold text-purple-900">👨‍🔧 Quản lý sàn</h3>
+                <p className="mt-3 text-sm text-purple-800 leading-relaxed">
+                  Nhập dữ liệu chấm công công nhân, tạo phiếu cân, quản lý hàng tồn, xem lương của bộ phận.
+                </p>
+              </div>
+            </div>
+
+            {/* Key Features */}
+            <div className="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+              <h3 className="text-xl font-bold text-slate-900">🎯 Các đặc trưng chính:</h3>
+              <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="flex items-start gap-3">
+                  <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mt-2"></span>
+                  <span className="text-slate-700"><strong>Tính lương tự động</strong> từ dữ liệu chấm công theo loại sản phẩm</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mt-2"></span>
+                  <span className="text-slate-700"><strong>Công nợ tích lũy</strong> - theo dõi chi tiết từng phiếu cân</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mt-2"></span>
+                  <span className="text-slate-700"><strong>Xuất báo cáo Excel</strong> - In sơ đồ lương, công nợ, doanh số</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mt-2"></span>
+                  <span className="text-slate-700"><strong>Quyền truy cập</strong> - Phân biệt Admin, Kế toán, Nhân viên</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mt-2"></span>
+                  <span className="text-slate-700"><strong>Nhật ký kiểm toán</strong> - Ghi lại ai sửa cái gì, khi nào</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="inline-block h-2 w-2 rounded-full bg-blue-500 mt-2"></span>
+                  <span className="text-slate-700"><strong>Truy cập từ web</strong> - Không cần cài đặt, dùng trình duyệt</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Features Tab */}
+        {activeTab === 'features' && (
+          <div className="bg-white rounded-lg p-8 shadow-sm">
+            <FeatureList />
+          </div>
+        )}
+
+        {/* Guide Tab */}
+        {activeTab === 'guide' && (
+          <div className="bg-white rounded-lg p-8 shadow-sm">
+            <QuickGuide />
+          </div>
+        )}
+      </section>
 
       {/* Footer */}
-      <div className='bg-gray-100 border-t border-gray-200 py-8 mt-12'>
-        <div className='container mx-auto px-4 text-center'>
-          <p className='text-gray-600'>
-            Phiên bản hệ thống: 1.0 • Cập nhật lần cuối: Tháng 3/2026
+      <section className="border-t border-slate-200 bg-white py-8 mt-12">
+        <div className="mx-auto max-w-6xl px-4 text-center">
+          <p className="text-sm text-slate-600">
+            Toàn Tâm Phát v1.0 • {new Date().getFullYear()} • Thiết kế cho xưởng chế biến gỗ
           </p>
-          <p className='text-sm text-gray-500 mt-2'>
-            © 2026 Van EP Manager. All rights reserved.
+          <p className="mt-2 text-xs text-slate-500">
+            Liên hệ Admin hệ thống để được hỗ trợ hoặc báo cáo lỗi
           </p>
         </div>
-      </div>
+      </section>
     </div>
-  )
+  );
 }

@@ -1,9 +1,11 @@
 'use client';
 
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 type JsonViewerProps = {
   value: unknown;
+  modal?: boolean;
 };
 
 function stringifyValue(value: unknown) {
@@ -15,8 +17,16 @@ function stringifyValue(value: unknown) {
   }
 }
 
-export default function JsonViewer({ value }: JsonViewerProps) {
-  const [expanded, setExpanded] = useState(false);
+function SyntaxHighlightedJson({ text }: { text: string }) {
+  return (
+    <pre className="font-mono text-xs leading-relaxed text-slate-800 whitespace-pre-wrap break-words">
+      {text}
+    </pre>
+  );
+}
+
+export default function JsonViewer({ value, modal }: JsonViewerProps) {
+  const [expanded, setExpanded] = useState(modal ?? false);
 
   const fullText = useMemo(() => stringifyValue(value), [value]);
   const shortText = useMemo(() => {
@@ -28,23 +38,43 @@ export default function JsonViewer({ value }: JsonViewerProps) {
     return <span className="text-xs text-slate-400">-</span>;
   }
 
+  if (modal) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 overflow-auto max-h-80">
+        <SyntaxHighlightedJson text={fullText} />
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-[460px]">
+    <div>
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
-        className="mb-1 text-xs font-medium text-[#1B5E20] hover:underline"
+        className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-[#0B7285] hover:underline"
       >
-        {expanded ? 'Thu gon JSON' : 'Mo rong JSON'}
+        {expanded ? (
+          <>
+            <ChevronUp className="h-3 w-3" />
+            Thu gọn
+          </>
+        ) : (
+          <>
+            <ChevronDown className="h-3 w-3" />
+            Mở rộng
+          </>
+        )}
       </button>
 
-      <pre
-        className={`rounded-md border border-slate-200 bg-slate-50 p-2 text-[11px] text-slate-700 ${
-          expanded ? 'max-h-52 overflow-auto' : 'truncate whitespace-pre-wrap'
-        }`}
-      >
-        {expanded ? fullText : shortText}
-      </pre>
+      <div className={`rounded-lg border border-slate-200 bg-slate-50 p-3 ${expanded ? 'max-h-80 overflow-auto' : 'overflow-hidden'}`}>
+        {expanded ? (
+          <SyntaxHighlightedJson text={fullText} />
+        ) : (
+          <pre className="font-mono text-xs text-slate-700 truncate whitespace-pre-wrap break-words">
+            {shortText}
+          </pre>
+        )}
+      </div>
     </div>
   );
 }

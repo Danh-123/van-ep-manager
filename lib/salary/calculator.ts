@@ -69,10 +69,6 @@ function parseMeta(ghiChu: unknown): MetaData {
   }
 }
 
-function isPresentStatus(status: Attendance['status']) {
-  return status === 'CoMat' || status === 'LamThem';
-}
-
 export function calculateDailySalary(
   totalAmount: number,
   attendanceRecords: Array<{
@@ -82,7 +78,9 @@ export function calculateDailySalary(
     phat: number;
   }>,
 ): Map<number, number> {
-  const presentWorkers = attendanceRecords.filter((record) => record.trang_thai === 'CoMat');
+  const presentWorkers = attendanceRecords.filter(
+    (record) => record.trang_thai === 'CoMat' || record.trang_thai === 'LamThem',
+  );
   if (presentWorkers.length === 0) return new Map();
 
   const baseSalary = totalAmount / presentWorkers.length;
@@ -117,13 +115,8 @@ export async function calculateMonthlySalary(
     workerQuery = workerQuery.eq('id', workerId);
   }
 
-  const [workersResult, dailySummaryResult, attendanceResult, monthlyExistingResult] = await Promise.all([
+  const [workersResult, attendanceResult, monthlyExistingResult] = await Promise.all([
     workerQuery,
-    supabase
-      .from('tong_tien_cong_ngay')
-      .select('cong_nhan_id, ngay, tong_tien')
-      .gte('ngay', start)
-      .lte('ngay', end),
     supabase
       .from('cham_cong')
       .select('cong_nhan_id, ngay, thanh_tien, so_luong, ghi_chu')
@@ -139,9 +132,6 @@ export async function calculateMonthlySalary(
   if (workersResult.error) {
     throw new Error(workersResult.error.message);
   }
-  if (dailySummaryResult.error) {
-    throw new Error(dailySummaryResult.error.message);
-  }
   if (attendanceResult.error) {
     throw new Error(attendanceResult.error.message);
   }
@@ -150,10 +140,6 @@ export async function calculateMonthlySalary(
   }
 
   const baseByWorker = new Map<number, number>();
-  (dailySummaryResult.data ?? []).forEach((row) => {
-    const typed = row as { cong_nhan_id: number; tong_tien: number | string };
-    baseByWorker.set(typed.cong_nhan_id, (baseByWorker.get(typed.cong_nhan_id) ?? 0) + toNumber(typed.tong_tien));
-  });
 
   const detailsByWorker = new Map<number, SalaryDailyDetail[]>();
   const bonusByWorker = new Map<number, number>();
@@ -172,11 +158,14 @@ export async function calculateMonthlySalary(
     const inferredStatus = meta.status ?? (toNumber(typed.so_luong) > 0 ? 'CoMat' : 'Nghi');
     const bonus = toNumber(meta.bonus);
     const penalty = toNumber(meta.penalty);
+    const dailySalary = toNumber(typed.thanh_tien);
+
+    baseByWorker.set(typed.cong_nhan_id, (baseByWorker.get(typed.cong_nhan_id) ?? 0) + dailySalary);
 
     const detail: SalaryDailyDetail = {
       date: typed.ngay,
       status: inferredStatus,
-      dailySalary: toNumber(typed.thanh_tien),
+      dailySalary,
       bonus,
       penalty,
       note: meta.note ?? '',
