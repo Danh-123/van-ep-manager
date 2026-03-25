@@ -460,6 +460,25 @@ security definer
 set search_path = public
 as $$
 begin
+  with salary_sum as (
+    select
+      ttcn.cong_nhan_id,
+      coalesce(sum(ttcn.tong_tien), 0) as tong_tien_cong
+    from public.tong_tien_cong_ngay ttcn
+    where extract(month from ttcn.ngay)::smallint = p_thang
+      and extract(year from ttcn.ngay)::integer = p_nam
+    group by ttcn.cong_nhan_id
+  ),
+  payment_sum as (
+    select
+      lstt.cong_nhan_id,
+      coalesce(sum(lstt.so_tien), 0) as tong_da_thanh_toan
+    from public.lich_su_thanh_toan lstt
+    where lstt.cong_nhan_id is not null
+      and extract(month from lstt.ngay_thanh_toan)::smallint = p_thang
+      and extract(year from lstt.ngay_thanh_toan)::integer = p_nam
+    group by lstt.cong_nhan_id
+  )
   insert into public.luong_thang (
     cong_nhan_id,
     thang,
@@ -473,28 +492,22 @@ begin
     c.id as cong_nhan_id,
     p_thang,
     p_nam,
-    coalesce(sum(ttcn.tong_tien), 0) as tong_tien_cong,
-    coalesce(sum(lstt.so_tien), 0) as tong_da_thanh_toan,
+    coalesce(ss.tong_tien_cong, 0) as tong_tien_cong,
+    least(coalesce(ps.tong_da_thanh_toan, 0), coalesce(ss.tong_tien_cong, 0)) as tong_da_thanh_toan,
     case
-      when coalesce(sum(lstt.so_tien), 0) = 0 then 'ChuaChot'
-      when coalesce(sum(lstt.so_tien), 0) < coalesce(sum(ttcn.tong_tien), 0) then 'DaThanhToanMotPhan'
+      when coalesce(ps.tong_da_thanh_toan, 0) = 0 then 'ChuaChot'
+      when coalesce(ps.tong_da_thanh_toan, 0) < coalesce(ss.tong_tien_cong, 0) then 'DaThanhToanMotPhan'
       else 'DaThanhToanHet'
     end as trang_thai,
     case
-      when coalesce(sum(lstt.so_tien), 0) >= coalesce(sum(ttcn.tong_tien), 0) and coalesce(sum(ttcn.tong_tien), 0) > 0 then now()
+      when coalesce(ps.tong_da_thanh_toan, 0) >= coalesce(ss.tong_tien_cong, 0) and coalesce(ss.tong_tien_cong, 0) > 0 then now()
       else null
     end as closed_at
   from public.cong_nhan c
-  left join public.tong_tien_cong_ngay ttcn
-    on ttcn.cong_nhan_id = c.id
-   and extract(month from ttcn.ngay)::smallint = p_thang
-   and extract(year from ttcn.ngay)::integer = p_nam
-  left join public.lich_su_thanh_toan lstt
-    on lstt.cong_nhan_id = c.id
-   and extract(month from lstt.ngay_thanh_toan)::smallint = p_thang
-   and extract(year from lstt.ngay_thanh_toan)::integer = p_nam
+  left join salary_sum ss on ss.cong_nhan_id = c.id
+  left join payment_sum ps on ps.cong_nhan_id = c.id
   where p_cong_nhan_id is null or c.id = p_cong_nhan_id
-  group by c.id
+  group by c.id, ss.tong_tien_cong, ps.tong_da_thanh_toan
   on conflict (cong_nhan_id, thang, nam)
   do update set
     tong_tien_cong = excluded.tong_tien_cong,
@@ -559,27 +572,14 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_ngay date;
-  v_cong_nhan_id bigint;
 begin
-  -- Determine affected day / worker from NEW/OLD row.
-  v_ngay = coalesce(new.ngay, old.ngay);
-  v_cong_nhan_id = coalesce(new.cong_nhan_id, old.cong_nhan_id);
-
-  if tg_table_name = 'cham_cong' then
-    -- Source table changed => recalculate day total.
-    perform public.recalculate_luong_ngay(v_ngay);
-  elsif tg_table_name = 'tong_tien_cong_ngay' then
-    -- Daily total changed => refresh monthly summary for the affected day/month.
-    perform public.recalculate_luong_thang(
-      extract(month from v_ngay)::smallint,
-      extract(year from v_ngay)::integer,
-      null
-    );
+  if tg_op = 'DELETE' then
+    perform public.recalculate_luong_ngay(old.ngay);
+    return old;
   end if;
 
-  return coalesce(new, old);
+  perform public.recalculate_luong_ngay(new.ngay);
+  return new;
 end;
 $$;
 
@@ -590,9 +590,6 @@ after insert or update or delete on public.cham_cong
 for each row execute procedure public.trigger_recalculate_luong();
 
 drop trigger if exists trg_tong_tien_cong_ngay_recalculate_luong on public.tong_tien_cong_ngay;
-create trigger trg_tong_tien_cong_ngay_recalculate_luong
-after update on public.tong_tien_cong_ngay
-for each row execute procedure public.trigger_recalculate_luong();
 
 -- Optional but useful: when payment history changes, update monthly summary.
 create or replace function public.trigger_recalculate_luong_from_payment()
@@ -826,6 +823,8 @@ create index if not exists idx_cham_cong_ngay on public.cham_cong(ngay);
 create index if not exists idx_cham_cong_cong_nhan_ngay on public.cham_cong(cong_nhan_id, ngay);
 create index if not exists idx_tong_tien_cong_ngay_ngay on public.tong_tien_cong_ngay(ngay);
 create index if not exists idx_phieu_can_ngay_can on public.phieu_can(ngay_can);
+create index if not exists idx_phieu_can_created_at on public.phieu_can(created_at);
+create index if not exists idx_cong_nhan_ho_ten on public.cong_nhan(ho_ten);
 create index if not exists idx_lich_su_thanh_toan_date on public.lich_su_thanh_toan(ngay_thanh_toan);
 create index if not exists idx_lich_su_thanh_toan_ticket on public.lich_su_thanh_toan(phieu_can_id);
 create index if not exists idx_luong_thang_month_year on public.luong_thang(nam, thang);

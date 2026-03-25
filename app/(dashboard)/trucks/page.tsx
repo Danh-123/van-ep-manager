@@ -2,7 +2,8 @@
 
 import { format } from 'date-fns';
 import { Plus, Search } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   getFilterOptions,
@@ -10,8 +11,6 @@ import {
   getTickets,
   type TicketPaymentHistory,
   type TicketRow,
-  type TicketOption,
-  type WoodTypeOption,
 } from '@/app/(dashboard)/trucks/actions';
 import CreateTicketModal from '@/components/trucks/CreateTicketModal';
 import HistoryModal from '@/components/trucks/HistoryModal';
@@ -23,15 +22,13 @@ type PaymentFilter = 'TatCa' | 'ChuaThanhToan' | 'ThanhToanMotPhan' | 'DaThanhTo
 
 export default function TrucksPage() {
   const mounted = useMounted();
-  const [tickets, setTickets] = useState<TicketRow[]>([]);
-  const [trucks, setTrucks] = useState<TicketOption[]>([]);
-  const [woodTypes, setWoodTypes] = useState<WoodTypeOption[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
 
   const [dateFilter, setDateFilter] = useState('');
   const [truckFilter, setTruckFilter] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('TatCa');
 
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -43,47 +40,48 @@ export default function TrucksPage() {
   const [historyRows, setHistoryRows] = useState<TicketPaymentHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const loadOptions = useCallback(async () => {
-    const result = await getFilterOptions();
+  const optionsQuery = useQuery({
+    queryKey: ['truck-filter-options'],
+    queryFn: async () => {
+      const result = await getFilterOptions();
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    staleTime: 60_000,
+  });
 
-    if (!result.success) {
-      setError(result.error);
-      return;
-    }
+  const ticketsQuery = useQuery({
+    queryKey: ['tickets', page, pageSize, dateFilter, truckFilter, paymentFilter],
+    queryFn: async () => {
+      const result = await getTickets({
+        date: dateFilter || undefined,
+        truckId: truckFilter ? Number(truckFilter) : undefined,
+        paymentStatus: paymentFilter,
+        page,
+        pageSize,
+      });
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result.data;
+    },
+    staleTime: 60_000,
+  });
 
-    setTrucks(result.data.trucks);
-    setWoodTypes(result.data.woodTypes);
-  }, []);
-
-  const loadTickets = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    const result = await getTickets({
-      date: dateFilter || undefined,
-      truckId: truckFilter ? Number(truckFilter) : undefined,
-      paymentStatus: paymentFilter,
-    });
-
-    if (!result.success) {
-      setError(result.error);
-      setTickets([]);
-      setLoading(false);
-      return;
-    }
-
-    setTickets(result.data);
-    setLoading(false);
-  }, [dateFilter, paymentFilter, truckFilter]);
+  const tickets = ticketsQuery.data?.items ?? [];
+  const total = ticketsQuery.data?.total ?? 0;
+  const totalPages = ticketsQuery.data?.totalPages ?? 1;
+  const loading = ticketsQuery.isLoading || ticketsQuery.isFetching;
+  const trucks = optionsQuery.data?.trucks ?? [];
+  const woodTypes = optionsQuery.data?.woodTypes ?? [];
 
   useEffect(() => {
-    void loadOptions();
-  }, [loadOptions]);
-
-  useEffect(() => {
-    void loadTickets();
-  }, [loadTickets]);
+    setPage(1);
+  }, [dateFilter, truckFilter, paymentFilter]);
 
   const handleOpenHistory = async (ticket: TicketRow) => {
     setActiveTicket(ticket);
@@ -176,6 +174,16 @@ export default function TrucksPage() {
       </section>
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+      {ticketsQuery.error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {(ticketsQuery.error as Error).message}
+        </div>
+      )}
+      {optionsQuery.error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {(optionsQuery.error as Error).message}
+        </div>
+      )}
       {success && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
           {success}
@@ -192,6 +200,34 @@ export default function TrucksPage() {
         onHistory={(ticket) => void handleOpenHistory(ticket)}
       />
 
+      <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-slate-600">
+          Hien thi {tickets.length === 0 ? 0 : (page - 1) * pageSize + 1}-
+          {Math.min(page * pageSize, total)} / {total} phieu can
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={page <= 1 || loading}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Truoc
+          </button>
+          <span className="text-slate-600">
+            Trang {page}/{totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={page >= totalPages || loading}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Sau
+          </button>
+        </div>
+      </section>
+
       <CreateTicketModal
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -199,8 +235,8 @@ export default function TrucksPage() {
         woodTypes={woodTypes}
         onCreated={() => {
           setSuccess('Tao phieu can thanh cong.');
-          void loadOptions();
-          void loadTickets();
+          void queryClient.invalidateQueries({ queryKey: ['truck-filter-options'] });
+          void queryClient.invalidateQueries({ queryKey: ['tickets'] });
         }}
       />
 
@@ -210,7 +246,7 @@ export default function TrucksPage() {
         onOpenChange={setPaymentOpen}
         onSuccess={() => {
           setSuccess('Cap nhat thanh toan thanh cong.');
-          void loadTickets();
+          void queryClient.invalidateQueries({ queryKey: ['tickets'] });
         }}
       />
 

@@ -2,27 +2,31 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Loader2, Lock, Mail } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
 import { signIn } from '@/app/login/actions';
+import { vi } from '@/lib/translations/vi';
 
 const loginSchema = z.object({
-  email: z.string().trim().email('Email khong hop le'),
+  email: z.string().trim().email('Email không hợp lệ'),
   password: z
     .string()
-    .min(6, 'Mat khau phai co it nhat 6 ky tu')
-    .max(100, 'Mat khau qua dai'),
+    .min(6, 'Mật khẩu phải có ít nhất 6 ký tự')
+    .max(100, 'Mật khẩu quá dài'),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [authError, setAuthError] = useState<string | null>(null);
+  const isRegistered = searchParams.get('registered') === '1';
 
   const {
     register,
@@ -62,13 +66,19 @@ export default function LoginPage() {
       </div>
 
       <header className="mb-6 text-left">
-        <h2 className="text-2xl font-semibold tracking-tight text-[#1B5E20]">Dang nhap he thong</h2>
+        <h2 className="text-2xl font-semibold tracking-tight text-[#1B5E20]">Đăng nhập hệ thống</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Su dung tai khoan duoc cap de quan ly cham cong, luong va thong tin van ep.
+          Sử dụng tài khoản được cấp để quản lý chấm công, lương và thông tin ván ép.
         </p>
       </header>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+        {isRegistered && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-[#1B5E20]">
+            Đăng ký thành công. Vui lòng đăng nhập để tiếp tục.
+          </div>
+        )}
+
         <div>
           <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
             Email
@@ -90,7 +100,7 @@ export default function LoginPage() {
 
         <div>
           <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700">
-            Mat khau
+            Mật khẩu
           </label>
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -100,7 +110,7 @@ export default function LoginPage() {
               autoComplete="current-password"
               disabled={isPending}
               className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-900 outline-none ring-[#2E7D32]/30 transition focus:border-[#2E7D32] focus:ring-4 disabled:cursor-not-allowed disabled:bg-slate-100"
-              placeholder="Nhap mat khau"
+              placeholder="Nhập mật khẩu"
               {...register('password')}
             />
           </div>
@@ -119,13 +129,20 @@ export default function LoginPage() {
           {isPending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Dang dang nhap...
+              Đang đăng nhập...
             </>
           ) : (
-            'Dang nhap'
+            vi.auth.login
           )}
         </button>
       </form>
+
+      <p className="mt-4 text-center text-sm text-slate-600">
+        Chưa có tài khoản?{' '}
+        <Link href="/register" className="font-medium text-[#1B5E20] hover:underline">
+          {vi.auth.registerAccount}
+        </Link>
+      </p>
     </div>
   );
 }

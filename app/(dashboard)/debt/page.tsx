@@ -3,11 +3,11 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { Download, Search } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
   getDebtReport,
-  type CustomerDebtGroup,
   type DebtTicket,
 } from '@/app/(dashboard)/debt/actions';
 import { getPaymentHistory, type TicketPaymentHistory } from '@/app/(dashboard)/trucks/actions';
@@ -24,15 +24,12 @@ function formatMoney(value: number) {
 }
 
 export default function DebtPage() {
-  const [groups, setGroups] = useState<CustomerDebtGroup[]>([]);
-  const [customerOptions, setCustomerOptions] = useState<string[]>([]);
-  const [totalDebt, setTotalDebt] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [customerFilter, setCustomerFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(8);
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
 
   const [activeTicket, setActiveTicket] = useState<DebtTicket | null>(null);
@@ -43,34 +40,33 @@ export default function DebtPage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient();
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const debtQuery = useQuery({
+    queryKey: ['debt-report', search, customerFilter, page, pageSize],
+    queryFn: async () => {
+      const result = await getDebtReport({
+        search,
+        customer: customerFilter,
+        page,
+        pageSize,
+      });
 
-    const result = await getDebtReport({
-      search,
-      customer: customerFilter,
-    });
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
-    if (!result.success) {
-      setGroups([]);
-      setCustomerOptions([]);
-      setTotalDebt(0);
-      setError(result.error);
-      setLoading(false);
-      return;
-    }
+      return result.data;
+    },
+    staleTime: 60_000,
+  });
 
-    setGroups(result.data.groups);
-    setCustomerOptions(result.data.customerOptions);
-    setTotalDebt(result.data.totalDebt);
-    setLoading(false);
-  }, [search, customerFilter]);
-
-  useEffect(() => {
-    void loadData();
-  }, [loadData]);
+  const groups = debtQuery.data?.groups ?? [];
+  const customerOptions = debtQuery.data?.customerOptions ?? [];
+  const totalDebt = debtQuery.data?.totalDebt ?? 0;
+  const totalPages = debtQuery.data?.totalPages ?? 1;
+  const total = debtQuery.data?.total ?? 0;
+  const loading = debtQuery.isLoading || debtQuery.isFetching;
 
   const handleOpenHistory = async (ticket: DebtTicket) => {
     setActiveTicket(ticket);
@@ -186,7 +182,10 @@ export default function DebtPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(1);
+              }}
               placeholder="Tim theo ten khach hang..."
               className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
             />
@@ -194,7 +193,10 @@ export default function DebtPage() {
 
           <select
             value={customerFilter}
-            onChange={(event) => setCustomerFilter(event.target.value)}
+            onChange={(event) => {
+              setCustomerFilter(event.target.value);
+              setPage(1);
+            }}
             className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
           >
             <option value="">Tat ca khach hang</option>
@@ -207,7 +209,11 @@ export default function DebtPage() {
         </div>
       </header>
 
-      {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
+      {debtQuery.error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {(debtQuery.error as Error).message}
+        </div>
+      )}
       {success && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">
           {success}
@@ -226,6 +232,34 @@ export default function DebtPage() {
         onHistory={(ticket) => void handleOpenHistory(ticket)}
       />
 
+      <section className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-slate-600">
+          Hien thi {groups.length === 0 ? 0 : (page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} / {total}{' '}
+          khach hang
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={page <= 1 || loading}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Truoc
+          </button>
+          <span className="text-slate-600">
+            Trang {page}/{totalPages}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={page >= totalPages || loading}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Sau
+          </button>
+        </div>
+      </section>
+
       <PaymentModal
         open={paymentOpen}
         ticket={
@@ -241,7 +275,7 @@ export default function DebtPage() {
         onOpenChange={setPaymentOpen}
         onSuccess={() => {
           setSuccess('Cap nhat thanh toan thanh cong.');
-          void loadData();
+          void queryClient.invalidateQueries({ queryKey: ['debt-report'] });
         }}
       />
 

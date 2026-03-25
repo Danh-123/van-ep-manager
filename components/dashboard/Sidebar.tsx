@@ -20,6 +20,7 @@ import { usePathname } from 'next/navigation';
 
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMounted } from '@/hooks/useMounted';
+import { vi } from '@/lib/translations/vi';
 
 import { useSidebar } from './SidebarContext';
 
@@ -44,18 +45,18 @@ type MenuItem = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
-  { label: 'Cham cong', href: '/attendance', icon: ClipboardCheck, resource: 'cham-cong' },
-  { label: 'Tinh luong', href: '/salary', icon: WalletCards, resource: 'tinh-luong' },
-  { label: 'Xe hang', href: '/trucks', icon: Truck, resource: 'xe-hang' },
-  { label: 'Loai van ep', href: '/wood-types', icon: Layers3, resource: 'loai-van-ep' },
-  { label: 'Cong no', href: '/debt', icon: WalletCards, resource: 'cong-no' },
-  { label: 'Bao cao', href: '/reports', icon: BarChart3, resource: 'bao-cao' },
-  { label: 'Import du lieu', href: '/import', icon: FileUp, resource: 'nguoi-dung' },
-  { label: 'Audit log', href: '/audit-log', icon: ScrollText, resource: 'nguoi-dung' },
-  { label: 'Cong nhan', href: '/employees', icon: Users, resource: 'cong-nhan' },
-  { label: 'Nguoi dung', href: '/users', icon: UserCog, resource: 'nguoi-dung' },
-  { label: 'Tro giup', href: '/help', icon: HelpCircle, resource: 'dashboard' },
+  { label: vi.nav.dashboard, href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
+  { label: vi.nav.attendance, href: '/attendance', icon: ClipboardCheck, resource: 'cham-cong' },
+  { label: vi.nav.salary, href: '/salary', icon: WalletCards, resource: 'tinh-luong' },
+  { label: vi.nav.trucks, href: '/trucks', icon: Truck, resource: 'xe-hang' },
+  { label: vi.nav.woodTypes, href: '/wood-types', icon: Layers3, resource: 'loai-van-ep' },
+  { label: vi.nav.debt, href: '/debt', icon: WalletCards, resource: 'cong-no' },
+  { label: vi.nav.reports, href: '/reports', icon: BarChart3, resource: 'bao-cao' },
+  { label: vi.nav.importExcel, href: '/import', icon: FileUp, resource: 'nguoi-dung' },
+  { label: vi.nav.auditLog, href: '/audit-log', icon: ScrollText, resource: 'nguoi-dung' },
+  { label: vi.nav.employees, href: '/employees', icon: Users, resource: 'cong-nhan' },
+  { label: vi.nav.users, href: '/users', icon: UserCog, resource: 'nguoi-dung' },
+  { label: vi.nav.help, href: '/help', icon: HelpCircle, resource: 'dashboard' },
 ];
 
 const VIEWER_MENU_ITEMS: Array<{
@@ -63,9 +64,9 @@ const VIEWER_MENU_ITEMS: Array<{
   href: string;
   icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { label: 'Luong cua toi', href: '/my-salary', icon: WalletCards },
-  { label: 'Cham cong cua toi', href: '/my-attendance', icon: CalendarCheck },
-  { label: 'Tro giup', href: '/help', icon: HelpCircle },
+  { label: vi.nav.mySalary, href: '/my-salary', icon: WalletCards },
+  { label: vi.nav.myAttendance, href: '/my-attendance', icon: CalendarCheck },
+  { label: vi.nav.help, href: '/help', icon: HelpCircle },
 ];
 
 export default function Sidebar({ role }: SidebarProps) {
@@ -110,7 +111,7 @@ export default function Sidebar({ role }: SidebarProps) {
             type="button"
             className="rounded-md p-1.5 text-emerald-100 hover:bg-emerald-800/70 md:hidden"
             onClick={closeSidebar}
-            aria-label="Close sidebar"
+            aria-label="Đóng thanh điều hướng"
           >
             <X className="h-5 w-5" />
           </button>

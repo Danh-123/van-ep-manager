@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { History, ReceiptText } from 'lucide-react';
 
 import { type DebtTicket } from '@/app/(dashboard)/debt/actions';
+import { vi } from '@/lib/translations/vi';
 
 type CustomerDetailProps = {
   tickets: DebtTicket[];
@@ -27,10 +28,10 @@ function badgeClass(status: DebtTicket['status']) {
 }
 
 function badgeText(status: DebtTicket['status']) {
-  if (status === 'DaThanhToan') return 'Da thanh toan du';
-  if (status === 'ThanhToanMotPhan') return 'Thanh toan mot phan';
-  if (status === 'QuaHan') return 'Qua han >30 ngay';
-  return 'Chua thanh toan';
+  if (status === 'DaThanhToan') return 'Đã thanh toán đủ';
+  if (status === 'ThanhToanMotPhan') return 'Thanh toán một phần';
+  if (status === 'QuaHan') return 'Quá hạn > 30 ngày';
+  return 'Chưa thanh toán';
 }
 
 export default function CustomerDetail({ tickets, onPayment, onHistory }: CustomerDetailProps) {
@@ -40,21 +41,21 @@ export default function CustomerDetail({ tickets, onPayment, onHistory }: Custom
         <thead>
           <tr className="border-b border-slate-200 bg-slate-50 text-slate-500">
             <th className="px-3 py-2 font-medium">Ngay</th>
-            <th className="px-3 py-2 font-medium">Xe so</th>
-            <th className="px-3 py-2 font-medium">Thanh tien</th>
-            <th className="px-3 py-2 font-medium">Da tra</th>
-            <th className="px-3 py-2 font-medium">Con no</th>
-            <th className="px-3 py-2 font-medium">Ngay tao phieu</th>
-            <th className="px-3 py-2 font-medium">Ngay thanh toan gan nhat</th>
-            <th className="px-3 py-2 font-medium">Trang thai</th>
-            <th className="px-3 py-2 text-right font-medium">Actions</th>
+            <th className="px-3 py-2 font-medium">Xe số</th>
+            <th className="px-3 py-2 font-medium">Thành tiền</th>
+            <th className="px-3 py-2 font-medium">Đã trả</th>
+            <th className="px-3 py-2 font-medium">Còn nợ</th>
+            <th className="px-3 py-2 font-medium">Ngày tạo phiếu</th>
+            <th className="px-3 py-2 font-medium">Ngày thanh toán gần nhất</th>
+            <th className="px-3 py-2 font-medium">{vi.common.status}</th>
+            <th className="px-3 py-2 text-right font-medium">{vi.common.actions}</th>
           </tr>
         </thead>
         <tbody>
           {tickets.length === 0 ? (
             <tr>
               <td colSpan={9} className="px-3 py-4 text-slate-500">
-                Khong co phieu nao.
+                Không có phiếu nào.
               </td>
             </tr>
           ) : (
@@ -82,7 +83,7 @@ export default function CustomerDetail({ tickets, onPayment, onHistory }: Custom
                       className="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1 text-[11px] text-[#1B5E20] hover:bg-emerald-50"
                     >
                       <ReceiptText className="h-3 w-3" />
-                      Thanh toan
+                      Thanh toán
                     </button>
                     <button
                       type="button"
@@ -90,7 +91,7 @@ export default function CustomerDetail({ tickets, onPayment, onHistory }: Custom
                       className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50"
                     >
                       <History className="h-3 w-3" />
-                      Lich su
+                      Lịch sử
                     </button>
                   </div>
                 </td>

@@ -11,6 +11,8 @@ const ticketFilterSchema = z.object({
   date: z.string().optional(),
   truckId: z.number().int().positive().optional(),
   paymentStatus: z.enum(['TatCa', 'ChuaThanhToan', 'ThanhToanMotPhan', 'DaThanhToan']).default('TatCa'),
+  page: z.number().int().positive().default(1),
+  pageSize: z.number().int().positive().max(100).default(10),
 });
 
 const createTicketSchema = z.object({
@@ -176,7 +178,15 @@ export async function getFilterOptions(): Promise<
 
 export async function getTickets(
   rawFilters: z.input<typeof ticketFilterSchema>,
-): Promise<ActionResult<TicketRow[]>> {
+): Promise<
+  ActionResult<{
+    items: TicketRow[];
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  }>
+> {
   const filters = ticketFilterSchema.parse(rawFilters);
 
   try {
@@ -186,6 +196,7 @@ export async function getTickets(
       .from('phieu_can')
       .select(
         'id, ngay_can, khoi_luong_tan, don_gia_ap_dung, thanh_tien, so_tien_da_tra, khach_hang, xe_hang:xe_hang_id(bien_so), loai_van_ep:loai_van_ep_id(ten_loai)',
+        { count: 'exact' },
       )
       .order('ngay_can', { ascending: false })
       .order('id', { ascending: false });
@@ -197,7 +208,12 @@ export async function getTickets(
       query = query.eq('xe_hang_id', filters.truckId);
     }
 
-    const { data, error } = await query;
+    const page = Math.max(1, filters.page);
+    const pageSize = Math.max(1, filters.pageSize);
+    const start = (page - 1) * pageSize;
+    const end = start + pageSize - 1;
+
+    const { data, error, count } = await query.range(start, end);
 
     if (error) {
       return { success: false, error: error.message };
@@ -240,7 +256,19 @@ export async function getTickets(
         return row.paymentStatus === filters.paymentStatus;
       });
 
-    return { success: true, data: rows };
+    const total = count ?? 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+    return {
+      success: true,
+      data: {
+        items: rows,
+        page,
+        pageSize,
+        total,
+        totalPages,
+      },
+    };
   } catch (error) {
     return {
       success: false,

@@ -4,8 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { Download, Loader2, Plus, Search, Upload } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 
 import {
@@ -36,11 +37,7 @@ function formatDate(value: string) {
 }
 
 export default function EmployeesPage() {
-  const [rows, setRows] = useState<EmployeeItem[]>([]);
   const [page, setPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -49,6 +46,7 @@ export default function EmployeesPage() {
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeItem | null>(null);
 
   const [isPending, startTransition] = useTransition();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -67,40 +65,33 @@ export default function EmployeesPage() {
   const watchedStatus = watch('status');
   const watchedSearch = watch('search');
 
-  const loadEmployees = useCallback(
-    async (nextPage: number, search?: string, status?: 'TatCa' | 'DangLam' | 'NghiViec') => {
-      setLoading(true);
-      setError(null);
-
+  const employeesQuery = useQuery({
+    queryKey: ['employees', page, watchedSearch ?? '', watchedStatus],
+    queryFn: async () => {
       const result = await getEmployees({
-        page: nextPage,
+        page,
         pageSize: PAGE_SIZE,
-        search: search?.trim(),
-        status,
+        search: watchedSearch?.trim(),
+        status: watchedStatus,
       });
 
       if (!result.success) {
-        setError(result.error);
-        setLoading(false);
-        return;
+        throw new Error(result.error);
       }
 
-      setRows(result.data.items);
-      setTotal(result.data.total);
-      setTotalPages(result.data.totalPages);
-      setPage(result.data.page);
-      setLoading(false);
+      return result.data;
     },
-    [],
-  );
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    void loadEmployees(1, watchedSearch, watchedStatus);
-  }, [loadEmployees, watchedSearch, watchedStatus]);
+  const rows = employeesQuery.data?.items ?? [];
+  const total = employeesQuery.data?.total ?? 0;
+  const totalPages = employeesQuery.data?.totalPages ?? 1;
+  const loading = employeesQuery.isLoading || employeesQuery.isFetching;
 
   const handlePageChange = (nextPage: number) => {
     if (nextPage < 1 || nextPage > totalPages) return;
-    void loadEmployees(nextPage, watchedSearch, watchedStatus);
+    setPage(nextPage);
   };
 
   const handleDelete = (item: EmployeeItem) => {
@@ -118,7 +109,8 @@ export default function EmployeesPage() {
       }
 
       const nextPage = rows.length === 1 && page > 1 ? page - 1 : page;
-      await loadEmployees(nextPage, watchedSearch, watchedStatus);
+      setPage(nextPage);
+      await queryClient.invalidateQueries({ queryKey: ['employees'] });
     });
   };
 
@@ -126,9 +118,9 @@ export default function EmployeesPage() {
     startTransition(async () => {
       const result = await getEmployees({
         page: 1,
-        pageSize: 100,
-        search: '',
-        status: 'TatCa',
+        pageSize: 1000,
+        search: watchedSearch?.trim(),
+        status: watchedStatus,
       });
 
       if (!result.success) {
@@ -211,8 +203,9 @@ export default function EmployeesPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <form
           className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto]"
-          onSubmit={handleSubmit(async (values) => {
-            await loadEmployees(1, values.search, values.status);
+          onSubmit={handleSubmit(async () => {
+            setPage(1);
+            await queryClient.invalidateQueries({ queryKey: ['employees'] });
           })}
         >
           <div className="relative">
@@ -238,7 +231,8 @@ export default function EmployeesPage() {
             disabled={isSubmitting}
             onClick={() => {
               reset({ search: '', status: 'TatCa' });
-              void loadEmployees(1, '', 'TatCa');
+              setPage(1);
+              void queryClient.invalidateQueries({ queryKey: ['employees'] });
             }}
             className="h-10 rounded-lg border border-slate-200 px-4 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
           >
@@ -248,6 +242,11 @@ export default function EmployeesPage() {
       </section>
 
       {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {employeesQuery.error && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {(employeesQuery.error as Error).message}
+        </p>
+      )}
 
       <EmployeeTable
         rows={rows}
@@ -268,7 +267,7 @@ export default function EmployeesPage() {
         mode="create"
         open={createOpen}
         onOpenChange={setCreateOpen}
-        onSuccess={() => void loadEmployees(page, watchedSearch, watchedStatus)}
+        onSuccess={() => void queryClient.invalidateQueries({ queryKey: ['employees'] })}
       />
 
       <EmployeeForm
@@ -279,13 +278,16 @@ export default function EmployeesPage() {
           setEditOpen(open);
           if (!open) setSelectedEmployee(null);
         }}
-        onSuccess={() => void loadEmployees(page, watchedSearch, watchedStatus)}
+        onSuccess={() => void queryClient.invalidateQueries({ queryKey: ['employees'] })}
       />
 
       <ImportModal
         open={importOpen}
         onOpenChange={setImportOpen}
-        onImported={() => void loadEmployees(1, watchedSearch, watchedStatus)}
+        onImported={() => {
+          setPage(1);
+          void queryClient.invalidateQueries({ queryKey: ['employees'] });
+        }}
       />
     </div>
   );

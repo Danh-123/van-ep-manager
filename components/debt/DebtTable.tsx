@@ -1,6 +1,7 @@
 'use client';
 
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { Fragment, memo } from 'react';
 
 import { type CustomerDebtGroup, type DebtTicket } from '@/app/(dashboard)/debt/actions';
 
@@ -23,7 +24,7 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
-export default function DebtTable({
+function DebtTableComponent({
   groups,
   expandedCustomer,
   onToggleExpand,
@@ -63,8 +64,8 @@ export default function DebtTable({
                 const expanded = expandedCustomer === group.customer;
 
                 return (
-                  <>
-                    <tr key={group.customer} className="border-b border-slate-100">
+                    <Fragment key={group.customer}>
+                    <tr className="border-b border-slate-100">
                       <td className="px-4 py-3">
                         <button
                           type="button"
@@ -97,7 +98,7 @@ export default function DebtTable({
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })
             )}
@@ -107,3 +108,7 @@ export default function DebtTable({
     </section>
   );
 }
+
+const DebtTable = memo(DebtTableComponent);
+
+export default DebtTable;

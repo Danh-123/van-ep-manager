@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useTransition } from 'react';
 
 import { signOut } from '@/app/login/actions';
+import { vi } from '@/lib/translations/vi';
 
 import { useSidebar } from './SidebarContext';
 
@@ -46,14 +47,14 @@ export default function Header({ fullName, role }: HeaderProps) {
           type="button"
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 md:hidden"
           onClick={toggleSidebar}
-          aria-label="Open sidebar"
+          aria-label="Mở thanh điều hướng"
         >
           <Menu className="h-5 w-5" />
         </button>
 
         <div>
           <p className="text-sm font-semibold text-slate-900">VanEpManager</p>
-          <p className="text-xs text-slate-500">Dashboard</p>
+          <p className="text-xs text-slate-500">{vi.nav.dashboard}</p>
         </div>
       </div>
 
@@ -85,7 +86,7 @@ export default function Header({ fullName, role }: HeaderProps) {
               onSelect={() => router.push('/profile')}
             >
               <UserCircle2 className="h-4 w-4" />
-              Thong tin ca nhan
+              Thông tin cá nhân
             </DropdownMenu.Item>
             <DropdownMenu.Separator className="my-1 h-px bg-slate-100" />
             <DropdownMenu.Item
@@ -94,7 +95,7 @@ export default function Header({ fullName, role }: HeaderProps) {
               onSelect={handleSignOut}
             >
               <LogOut className="h-4 w-4" />
-              Dang xuat
+              {vi.auth.logout}
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>

@@ -21,8 +21,10 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 
 import { useAttendance } from '@/hooks/useAttendance';
+import { vi } from '@/lib/translations/vi';
 
 function toIsoDate(date: Date) {
   return format(date, 'yyyy-MM-dd');
@@ -47,9 +49,17 @@ function buildMonthGrid(monthDate: Date): Date[] {
 
 export default function AttendancePage() {
   const attendance = useAttendance();
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
 
   const days = buildMonthGrid(attendance.currentMonth);
   const monthTitle = format(attendance.currentMonth, 'MMMM yyyy');
+  const totalRows = attendance.rows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
+  const pagedRows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return attendance.rows.slice(start, start + pageSize);
+  }, [attendance.rows, page]);
 
   return (
     <div className="space-y-5">
@@ -82,7 +92,7 @@ export default function AttendancePage() {
               className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-3 py-2 text-sm font-medium text-white hover:bg-[#1B5E20] disabled:opacity-60"
             >
               {attendance.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Recalculate
+              Tính lại
             </button>
           </div>
         </div>
@@ -194,14 +204,14 @@ export default function AttendancePage() {
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50/80 text-slate-600">
                 <th className="px-3 py-3 font-medium">STT</th>
-                <th className="px-3 py-3 font-medium">Ho ten</th>
-                <th className="px-3 py-3 font-medium">Check-in</th>
-                <th className="px-3 py-3 font-medium">Check-out</th>
-                <th className="px-3 py-3 font-medium">Trang thai</th>
-                <th className="px-3 py-3 font-medium">Thuong</th>
-                <th className="px-3 py-3 font-medium">Phat</th>
-                <th className="px-3 py-3 font-medium">Ghi chu</th>
-                <th className="px-3 py-3 text-right font-medium">Actions</th>
+                <th className="px-3 py-3 font-medium">Họ tên</th>
+                <th className="px-3 py-3 font-medium">Giờ vào</th>
+                <th className="px-3 py-3 font-medium">Giờ ra</th>
+                <th className="px-3 py-3 font-medium">Trạng thái</th>
+                <th className="px-3 py-3 font-medium">Thưởng</th>
+                <th className="px-3 py-3 font-medium">Phạt</th>
+                <th className="px-3 py-3 font-medium">Ghi chú</th>
+                <th className="px-3 py-3 text-right font-medium">{vi.common.actions}</th>
               </tr>
             </thead>
             <tbody>
@@ -216,13 +226,13 @@ export default function AttendancePage() {
               ) : attendance.rows.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-3 py-6 text-center text-slate-500">
-                    Khong co cong nhan trong he thong.
+                    Không có công nhân trong hệ thống.
                   </td>
                 </tr>
               ) : (
-                attendance.rows.map((row, idx) => (
+                pagedRows.map((row, idx) => (
                   <tr key={row.congNhanId} className="border-b border-slate-100 last:border-0">
-                    <td className="px-3 py-2.5 text-slate-600">{idx + 1}</td>
+                    <td className="px-3 py-2.5 text-slate-600">{(page - 1) * pageSize + idx + 1}</td>
                     <td className="px-3 py-2.5">
                       <p className="font-medium text-slate-800">{row.hoTen}</p>
                       <p className="text-xs text-slate-500">
@@ -319,6 +329,34 @@ export default function AttendancePage() {
             </tbody>
           </table>
         </div>
+
+        <div className="mt-4 flex flex-col gap-2 border-t border-slate-200 pt-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-slate-600">
+            Hien thi {totalRows === 0 ? 0 : (page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalRows)} / {totalRows}{' '}
+            cong nhan
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page <= 1 || attendance.loading}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Truoc
+            </button>
+            <span className="text-slate-600">
+              Trang {page}/{totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page >= totalPages || attendance.loading}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Sau
+            </button>
+          </div>
+        </div>
       </section>
 
       <Dialog.Root open={attendance.salaryModalOpen} onOpenChange={attendance.setSalaryModalOpen}>
@@ -351,6 +389,12 @@ export default function AttendancePage() {
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
                 So nguoi co mat: <span className="font-semibold text-slate-900">{attendance.presentCount}</span>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                Luong moi nguoi = {Math.round(attendance.salaryFormula.totalAmount).toLocaleString('vi-VN')} ÷{' '}
+                {attendance.salaryFormula.workerCount} ={' '}
+                {Math.round(attendance.salaryFormula.baseSalary).toLocaleString('vi-VN')} VND
               </div>
 
               <div className="rounded-xl border border-slate-200">

@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server';
 const debtFilterSchema = z.object({
   search: z.string().optional(),
   customer: z.string().optional(),
+  page: z.number().int().positive().default(1),
+  pageSize: z.number().int().positive().max(100).default(10),
 });
 
 export type DebtStatus = 'DaThanhToan' | 'ThanhToanMotPhan' | 'ChuaThanhToan' | 'QuaHan';
@@ -62,6 +64,10 @@ export async function getDebtReport(
     groups: CustomerDebtGroup[];
     totalDebt: number;
     customerOptions: string[];
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
   }>
 > {
   const filters = debtFilterSchema.parse(rawFilters);
@@ -170,8 +176,14 @@ export async function getDebtReport(
       existing.tickets.push(ticket);
     });
 
-    const groups = Array.from(groupsMap.values()).sort((a, b) => b.totalDebt - a.totalDebt);
-    const totalDebt = groups.reduce((sum, group) => sum + group.totalDebt, 0);
+    const allGroups = Array.from(groupsMap.values()).sort((a, b) => b.totalDebt - a.totalDebt);
+    const totalDebt = allGroups.reduce((sum, group) => sum + group.totalDebt, 0);
+    const page = Math.max(1, filters.page);
+    const pageSize = Math.max(1, filters.pageSize);
+    const total = allGroups.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const start = (page - 1) * pageSize;
+    const groups = allGroups.slice(start, start + pageSize);
 
     return {
       success: true,
@@ -179,6 +191,10 @@ export async function getDebtReport(
         groups,
         totalDebt,
         customerOptions,
+        page,
+        pageSize,
+        total,
+        totalPages,
       },
     };
   } catch (error) {

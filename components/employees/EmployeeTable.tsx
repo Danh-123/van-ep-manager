@@ -2,6 +2,7 @@
 
 import { format } from 'date-fns';
 import { Edit3, Trash2 } from 'lucide-react';
+import { memo } from 'react';
 
 import { type EmployeeItem } from '@/app/(dashboard)/employees/actions';
 
@@ -30,7 +31,7 @@ function StatusBadge({ status }: { status: 'DangLam' | 'NghiViec' }) {
   );
 }
 
-export default function EmployeeTable({
+function EmployeeTableComponent({
   rows,
   page,
   totalPages,
@@ -141,3 +142,7 @@ export default function EmployeeTable({
     </section>
   );
 }
+
+const EmployeeTable = memo(EmployeeTableComponent);
+
+export default EmployeeTable;

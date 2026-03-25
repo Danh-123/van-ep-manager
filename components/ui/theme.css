@@ -1,0 +1,72 @@
+/* Global contrast overrides for readable light content and dark sidebar */
+:root {
+  --ui-content-bg: #ffffff;
+  --ui-content-text: #1f2937;
+  --ui-input-bg: #ffffff;
+  --ui-input-text: #111827;
+  --ui-input-border: #e5e7eb;
+  --ui-input-placeholder: #9ca3af;
+  --ui-input-focus: #2e7d32;
+  --ui-table-header-bg: #f9fafb;
+  --ui-table-row-bg: #ffffff;
+  --ui-table-row-hover: #f9fafb;
+  --ui-table-text: #1f2937;
+  --ui-sidebar-bg: #1b5e20;
+  --ui-sidebar-text: #ffffff;
+}
+
+html,
+body {
+  background-color: var(--ui-content-bg);
+  color: var(--ui-content-text);
+}
+
+/* Sidebar keeps dark palette with white text */
+aside {
+  color: var(--ui-sidebar-text);
+}
+
+/* Inputs and placeholders */
+input,
+textarea,
+select {
+  background-color: var(--ui-input-bg);
+  color: var(--ui-input-text);
+  border-color: var(--ui-input-border);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--ui-input-placeholder);
+  opacity: 1;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--ui-input-focus);
+}
+
+/* Data table readability */
+table {
+  color: var(--ui-table-text);
+}
+
+table thead th {
+  background-color: var(--ui-table-header-bg);
+  color: #111827;
+  font-weight: 600;
+}
+
+table tbody tr {
+  background-color: var(--ui-table-row-bg);
+}
+
+table tbody tr:hover {
+  background-color: var(--ui-table-row-hover);
+}
+
+table tbody td {
+  color: var(--ui-table-text);
+}

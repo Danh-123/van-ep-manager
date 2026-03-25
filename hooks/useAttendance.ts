@@ -39,6 +39,11 @@ type UseAttendanceState = {
   refresh: () => Promise<void>;
   isBackdate: boolean;
   salaryPreview: Array<{ congNhanId: number; hoTen: string; amount: number }>;
+  salaryFormula: {
+    totalAmount: number;
+    workerCount: number;
+    baseSalary: number;
+  };
 };
 
 function isPresentStatus(status: AttendanceRow['status']) {
@@ -162,7 +167,7 @@ export function useAttendance(): UseAttendanceState {
 
   const saveSalaryForDay = useCallback(async () => {
     const totalAmount = Number(salaryInput);
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+    if (!Number.isFinite(totalAmount) || totalAmount < 0) {
       setError('Tong tien cong khong hop le');
       return;
     }
@@ -208,11 +213,11 @@ export function useAttendance(): UseAttendanceState {
 
   const salaryPreview = useMemo(() => {
     const totalAmount = Number(salaryInput);
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+    if (!Number.isFinite(totalAmount) || totalAmount < 0) {
       return [];
     }
 
-    const presentRows = rows.filter((row) => isPresentStatus(row.status));
+    const presentRows = rows.filter((row) => row.status === 'CoMat');
     if (presentRows.length === 0) {
       return [];
     }
@@ -222,8 +227,20 @@ export function useAttendance(): UseAttendanceState {
     return presentRows.map((row) => ({
       congNhanId: row.congNhanId,
       hoTen: row.hoTen,
-      amount: Math.max(0, base + Number(row.bonus || 0) - Number(row.penalty || 0)),
+      amount: base + Number(row.bonus || 0) - Number(row.penalty || 0),
     }));
+  }, [rows, salaryInput]);
+
+  const salaryFormula = useMemo(() => {
+    const totalAmount = Number(salaryInput);
+    const workerCount = rows.filter((row) => row.status === 'CoMat').length;
+    const baseSalary = Number.isFinite(totalAmount) && workerCount > 0 ? totalAmount / workerCount : 0;
+
+    return {
+      totalAmount: Number.isFinite(totalAmount) ? totalAmount : 0,
+      workerCount,
+      baseSalary,
+    };
   }, [rows, salaryInput]);
 
   return {
@@ -254,5 +271,6 @@ export function useAttendance(): UseAttendanceState {
     refresh,
     isBackdate,
     salaryPreview,
+    salaryFormula,
   };
 }

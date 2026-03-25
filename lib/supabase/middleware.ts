@@ -55,6 +55,8 @@ export async function updateSession(request: NextRequest) {
   }
 
   const isLoginRoute = pathname === '/login' || pathname.startsWith('/login/');
+  const isRegisterRoute = pathname === '/register' || pathname.startsWith('/register/');
+  const isAuthRoute = isLoginRoute || isRegisterRoute;
 
   let resolvedRole = '';
 
@@ -71,7 +73,7 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  if (!user && !isLoginRoute) {
+  if (!user && !isAuthRoute) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.searchParams.set('redirectedFrom', pathname);
@@ -84,7 +86,7 @@ export async function updateSession(request: NextRequest) {
     return redirectResponse;
   }
 
-  if (user && isLoginRoute) {
+  if (user && isAuthRoute) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = resolvedRole === 'Viewer' ? '/my-salary' : '/dashboard';
 

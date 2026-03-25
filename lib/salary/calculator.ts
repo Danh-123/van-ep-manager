@@ -11,6 +11,13 @@ export type Attendance = {
   penalty: number;
 };
 
+export type DailyAttendanceRecord = {
+  cong_nhan_id: number;
+  trang_thai: 'CoMat' | 'Nghi' | 'NghiPhep' | 'LamThem';
+  thuong: number;
+  phat: number;
+};
+
 export type SalaryDailyDetail = {
   date: string;
   status: 'CoMat' | 'Nghi' | 'NghiPhep' | 'LamThem';
@@ -68,29 +75,25 @@ function isPresentStatus(status: Attendance['status']) {
 
 export function calculateDailySalary(
   totalAmount: number,
-  attendanceRecords: Attendance[],
+  attendanceRecords: Array<{
+    cong_nhan_id: number;
+    trang_thai: string;
+    thuong: number;
+    phat: number;
+  }>,
 ): Map<number, number> {
+  const presentWorkers = attendanceRecords.filter((record) => record.trang_thai === 'CoMat');
+  if (presentWorkers.length === 0) return new Map();
+
+  const baseSalary = totalAmount / presentWorkers.length;
   const result = new Map<number, number>();
 
-  if (!Number.isFinite(totalAmount) || totalAmount <= 0 || attendanceRecords.length === 0) {
-    attendanceRecords.forEach((record) => {
-      result.set(record.workerId, 0);
-    });
-    return result;
+  for (const worker of presentWorkers) {
+    let salary = baseSalary;
+    if (worker.thuong) salary += worker.thuong;
+    if (worker.phat) salary -= worker.phat;
+    result.set(worker.cong_nhan_id, salary);
   }
-
-  const presentRecords = attendanceRecords.filter((record) => isPresentStatus(record.status));
-  const unitAmount = presentRecords.length > 0 ? totalAmount / presentRecords.length : 0;
-
-  attendanceRecords.forEach((record) => {
-    if (!isPresentStatus(record.status)) {
-      result.set(record.workerId, 0);
-      return;
-    }
-
-    const salary = Math.max(0, unitAmount + toNumber(record.bonus) - toNumber(record.penalty));
-    result.set(record.workerId, salary);
-  });
 
   return result;
 }

@@ -446,8 +446,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Tong quan dashboard</h1>
-        <p className="mt-1 text-sm text-slate-600">Theo doi doanh thu, cong no va cham cong trong ngay.</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Tổng quan</h1>
+        <p className="mt-1 text-sm text-slate-600">Theo dõi doanh thu, công nợ và chấm công trong ngày.</p>
       </div>
 
       <Suspense fallback={<StatsCardsSkeleton />}>

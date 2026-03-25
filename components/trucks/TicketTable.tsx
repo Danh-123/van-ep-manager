@@ -2,8 +2,10 @@
 
 import { format } from 'date-fns';
 import { History, ReceiptText } from 'lucide-react';
+import { memo } from 'react';
 
 import { type TicketRow } from '@/app/(dashboard)/trucks/actions';
+import { vi } from '@/lib/translations/vi';
 
 type TicketTableProps = {
   rows: TicketRow[];
@@ -21,9 +23,9 @@ function formatMoney(value: number) {
 }
 
 function statusLabel(status: TicketRow['paymentStatus']) {
-  if (status === 'DaThanhToan') return 'Da thanh toan';
-  if (status === 'ThanhToanMotPhan') return 'Thanh toan mot phan';
-  return 'Chua thanh toan';
+  if (status === 'DaThanhToan') return 'Đã thanh toán';
+  if (status === 'ThanhToanMotPhan') return 'Thanh toán một phần';
+  return 'Chưa thanh toán';
 }
 
 function statusClass(status: TicketRow['paymentStatus']) {
@@ -32,7 +34,7 @@ function statusClass(status: TicketRow['paymentStatus']) {
   return 'border-red-200 bg-red-50 text-red-700';
 }
 
-export default function TicketTable({ rows, loading, onPayment, onHistory }: TicketTableProps) {
+function TicketTableComponent({ rows, loading, onPayment, onHistory }: TicketTableProps) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
@@ -40,16 +42,16 @@ export default function TicketTable({ rows, loading, onPayment, onHistory }: Tic
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
               <th className="px-4 py-3 font-medium">Ngay</th>
-              <th className="px-4 py-3 font-medium">Xe so</th>
-              <th className="px-4 py-3 font-medium">Khach hang</th>
-              <th className="px-4 py-3 font-medium">Loai van</th>
-              <th className="px-4 py-3 font-medium">Trong luong (kg)</th>
-              <th className="px-4 py-3 font-medium">Don gia</th>
-              <th className="px-4 py-3 font-medium">Thanh tien</th>
-              <th className="px-4 py-3 font-medium">Da tra</th>
-              <th className="px-4 py-3 font-medium">Con no</th>
-              <th className="px-4 py-3 font-medium">Trang thai</th>
-              <th className="px-4 py-3 text-right font-medium">Actions</th>
+              <th className="px-4 py-3 font-medium">Xe số</th>
+              <th className="px-4 py-3 font-medium">Khách hàng</th>
+              <th className="px-4 py-3 font-medium">Loại ván</th>
+              <th className="px-4 py-3 font-medium">Trọng lượng (kg)</th>
+              <th className="px-4 py-3 font-medium">Đơn giá</th>
+              <th className="px-4 py-3 font-medium">Thành tiền</th>
+              <th className="px-4 py-3 font-medium">Đã trả</th>
+              <th className="px-4 py-3 font-medium">Còn nợ</th>
+              <th className="px-4 py-3 font-medium">{vi.common.status}</th>
+              <th className="px-4 py-3 text-right font-medium">{vi.common.actions}</th>
             </tr>
           </thead>
           <tbody>
@@ -64,7 +66,7 @@ export default function TicketTable({ rows, loading, onPayment, onHistory }: Tic
             ) : rows.length === 0 ? (
               <tr>
                 <td colSpan={11} className="px-4 py-8 text-center text-slate-500">
-                  Chua co phieu can nao phu hop bo loc.
+                  Chưa có phiếu cân nào phù hợp bộ lọc.
                 </td>
               </tr>
             ) : (
@@ -92,7 +94,7 @@ export default function TicketTable({ rows, loading, onPayment, onHistory }: Tic
                         className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-2.5 py-1.5 text-xs text-[#1B5E20] hover:bg-emerald-50"
                       >
                         <ReceiptText className="h-3.5 w-3.5" />
-                        Thanh toan
+                        Thanh toán
                       </button>
                       <button
                         type="button"
@@ -100,7 +102,7 @@ export default function TicketTable({ rows, loading, onPayment, onHistory }: Tic
                         className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                       >
                         <History className="h-3.5 w-3.5" />
-                        Xem lich su
+                        Xem lịch sử
                       </button>
                     </div>
                   </td>
@@ -113,3 +115,7 @@ export default function TicketTable({ rows, loading, onPayment, onHistory }: Tic
     </section>
   );
 }
+
+const TicketTable = memo(TicketTableComponent);
+
+export default TicketTable;
