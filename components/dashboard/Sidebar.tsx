@@ -54,7 +54,7 @@ const MENU_ITEMS: MenuItem[] = [
   { label: vi.nav.reports, href: '/reports', icon: BarChart3, resource: 'bao-cao' },
   { label: vi.nav.importExcel, href: '/import', icon: FileUp, resource: 'nguoi-dung' },
   { label: vi.nav.auditLog, href: '/audit-log', icon: ScrollText, resource: 'nguoi-dung' },
-  { label: vi.nav.employees, href: '/employees', icon: Users, resource: 'cong-nhan' },
+  { label: 'Danh sach', href: '/employees', icon: Users, resource: 'cong-nhan' },
   { label: vi.nav.users, href: '/users', icon: UserCog, resource: 'nguoi-dung' },
   { label: vi.nav.help, href: '/help', icon: HelpCircle, resource: 'dashboard' },
 ];

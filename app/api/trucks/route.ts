@@ -2,15 +2,19 @@ import { format } from 'date-fns';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { calculateDebt, type DebtInputRow } from '@/lib/trucks/debtCalculator';
 import { createClient } from '@/lib/supabase/server';
 
 const createTicketSchema = z.object({
+  ngayCan: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   bienSo: z.string().trim().min(3, 'Biển số xe là bắt buộc'),
   soTan: z.number().positive('Số tấn phải lớn hơn 0'),
   donGia: z.number().positive('Đơn giá phải lớn hơn 0'),
   thanhToan: z.number().min(0, 'Thanh toán không được âm'),
-  khachHang: z.string().trim().min(2, 'Khách hàng là bắt buộc'),
+  khachHangId: z.number().int().positive('Khách hàng là bắt buộc'),
   ghiChu: z.string().trim().optional().or(z.literal('')),
 });
 
@@ -20,13 +24,45 @@ const updateTicketSchema = z.object({
   soTan: z.number().positive('Số tấn phải lớn hơn 0'),
   donGia: z.number().positive('Đơn giá phải lớn hơn 0'),
   thanhToan: z.number().min(0, 'Thanh toán không được âm'),
-  khachHang: z.string().trim().min(2, 'Khách hàng là bắt buộc'),
+  khachHangId: z.number().int().positive().optional(),
+  khachHang: z.string().trim().min(2).optional(),
   ghiChu: z.string().trim().optional().or(z.literal('')),
 });
 
 const deleteTicketSchema = z.object({
   id: z.number().int().positive(),
 });
+
+type TruckRawRow = {
+  id: number;
+  ngay_can: string;
+  khoi_luong_tan: number | string;
+  don_gia_ap_dung: number | string;
+  so_tien_da_tra: number | string;
+  khach_hang_id: number | null;
+  khach_hang: string | null;
+  ghi_chu: string | null;
+  xe_hang?: { bien_so?: string } | null;
+  customer?: Record<string, unknown> | Array<Record<string, unknown>> | null;
+};
+
+type CalculatedTruckRow = {
+  id: number;
+  customerId: number | null;
+  customerCode: string;
+  customerName: string;
+  khachHang: string;
+  ngay: string;
+  bienSo: string;
+  soTan: number;
+  donGia: number;
+  thanhTien: number;
+  congNo: number;
+  thanhToan: number;
+  conLai: number;
+  ghiChu: string;
+  formulaText: string;
+};
 
 async function ensureManagerAccess() {
   const supabase = await createClient();
@@ -139,10 +175,141 @@ async function generateTicketNo(supabase: Awaited<ReturnType<typeof createClient
   return `${prefix}-${String(maxSeq + 1).padStart(3, '0')}`;
 }
 
+function toNumber(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function resolveCustomerCode(customer: Record<string, unknown> | null, customerId: number | null) {
+  if (!customer) {
+    return customerId ? `KH${String(customerId).padStart(3, '0')}` : 'KH-LE';
+  }
+
+  return (
+    (customer.ma_khach_hang as string | undefined) ??
+    (customer.ma as string | undefined) ??
+    (customer.code as string | undefined) ??
+    (customerId ? `KH${String(customerId).padStart(3, '0')}` : 'KH-LE')
+  );
+}
+
+function resolveCustomerName(customer: Record<string, unknown> | null, fallbackName: string | null) {
+  if (!customer) {
+    return (fallbackName ?? 'Khach le').trim() || 'Khach le';
+  }
+
+  return (
+    (customer.ten as string | undefined) ??
+    (customer.ten_khach_hang as string | undefined) ??
+    (customer.name as string | undefined) ??
+    (customer.ho_ten as string | undefined) ??
+    (fallbackName ?? 'Khach le')
+  ).trim();
+}
+
+function normalizeCreatePayload(body: unknown) {
+  const typed = (body ?? {}) as Record<string, unknown>;
+
+  return {
+    ngayCan:
+      (typed.ngay_can as string | undefined) ??
+      (typed.ngayCan as string | undefined),
+    bienSo:
+      (typed.bien_so_xe as string | undefined) ??
+      (typed.bienSo as string | undefined) ??
+      '',
+    soTan: toNumber((typed.khoi_luong_tan as unknown) ?? typed.soTan),
+    donGia: toNumber((typed.don_gia_ap_dung as unknown) ?? typed.donGia),
+    thanhToan: toNumber((typed.so_tien_da_tra as unknown) ?? typed.thanhToan),
+    khachHangId: toNumber((typed.khach_hang_id as unknown) ?? typed.khachHangId),
+    ghiChu:
+      (typed.ghi_chu as string | undefined) ??
+      (typed.ghiChu as string | undefined) ??
+      '',
+  };
+}
+
+function calculateDebtByCustomer(rawRows: TruckRawRow[]) {
+  const previousRemainByCustomer = new Map<string, number>();
+
+  return rawRows.map((typed) => {
+    const customerRow = Array.isArray(typed.customer) ? typed.customer[0] : typed.customer;
+    const customerId = typed.khach_hang_id ?? null;
+    const customerCode = resolveCustomerCode(customerRow ?? null, customerId).trim();
+    const customerName = resolveCustomerName(customerRow ?? null, typed.khach_hang);
+    const customerKey = customerId ? `id:${customerId}` : `name:${customerName.toLowerCase()}`;
+
+    const previousRemain = previousRemainByCustomer.get(customerKey) ?? 0;
+    const soTan = Math.max(0, toNumber(typed.khoi_luong_tan));
+    const donGia = Math.max(0, toNumber(typed.don_gia_ap_dung));
+    const thanhTien = soTan * donGia;
+    const congNo = Math.max(0, thanhTien + previousRemain);
+    const thanhToan = Math.max(0, toNumber(typed.so_tien_da_tra));
+    const conLai = Math.max(0, congNo - thanhToan);
+
+    previousRemainByCustomer.set(customerKey, conLai);
+
+    const formulaText =
+      previousRemain <= 0
+        ? `Cong no = ${thanhTien.toLocaleString('vi-VN')} (phieu dau tien cua khach hang ${customerName})`
+        : `Cong no = ${thanhTien.toLocaleString('vi-VN')} + ${previousRemain.toLocaleString('vi-VN')} = ${congNo.toLocaleString('vi-VN')}`;
+
+    return {
+      id: typed.id,
+      customerId,
+      customerCode,
+      customerName,
+      khachHang: customerName,
+      ngay: typed.ngay_can,
+      bienSo: typed.xe_hang?.bien_so ?? '-',
+      soTan,
+      donGia,
+      thanhTien,
+      congNo,
+      thanhToan,
+      conLai,
+      ghiChu: typed.ghi_chu ?? '',
+      formulaText,
+    } satisfies CalculatedTruckRow;
+  });
+}
+
+function buildCustomerDebts(rows: CalculatedTruckRow[]) {
+  const map = new Map<number, { customerCode: string; customerName: string; totalDebt: number; ticketCount: number }>();
+
+  rows.forEach((row) => {
+    if (!row.customerId) return;
+
+    const existing = map.get(row.customerId);
+    if (!existing) {
+      map.set(row.customerId, {
+        customerCode: row.customerCode,
+        customerName: row.customerName,
+        totalDebt: row.conLai,
+        ticketCount: 1,
+      });
+      return;
+    }
+
+    existing.totalDebt = row.conLai;
+    existing.ticketCount += 1;
+  });
+
+  return Array.from(map.entries())
+    .map(([customerId, value]) => ({
+      customerId,
+      customerCode: value.customerCode,
+      customerName: value.customerName,
+      totalDebt: value.totalDebt,
+      ticketCount: value.ticketCount,
+    }))
+    .sort((a, b) => b.totalDebt - a.totalDebt);
+}
+
 async function fetchTickets(supabase: Awaited<ReturnType<typeof createClient>>) {
   const result = await supabase
     .from('phieu_can')
-    .select('id, ngay_can, khoi_luong_tan, don_gia_ap_dung, so_tien_da_tra, khach_hang, ghi_chu, xe_hang:xe_hang_id(bien_so)')
+    .select('id, ngay_can, khoi_luong_tan, don_gia_ap_dung, so_tien_da_tra, khach_hang_id, khach_hang, ghi_chu, xe_hang:xe_hang_id(bien_so), customer:khach_hang_id(*)')
     .order('ngay_can', { ascending: true })
     .order('id', { ascending: true });
 
@@ -150,42 +317,118 @@ async function fetchTickets(supabase: Awaited<ReturnType<typeof createClient>>) 
     throw new Error(result.error.message);
   }
 
-  const rows: DebtInputRow[] = (result.data ?? []).map((row) => {
-    const typed = row as {
-      id: number;
-      ngay_can: string;
-      khoi_luong_tan: number | string;
-      don_gia_ap_dung: number | string;
-      so_tien_da_tra: number | string;
-      khach_hang: string | null;
-      ghi_chu: string | null;
-      xe_hang?: { bien_so?: string } | null;
-    };
-
-    return {
-      id: typed.id,
-      ngay: typed.ngay_can,
-      bienSo: typed.xe_hang?.bien_so ?? '-',
-      soTan: Number(typed.khoi_luong_tan) || 0,
-      donGia: Number(typed.don_gia_ap_dung) || 0,
-      thanhToan: Number(typed.so_tien_da_tra) || 0,
-      khachHang: typed.khach_hang ?? 'Khách lẻ',
-      ghiChu: typed.ghi_chu ?? '',
-    };
-  });
-
-  return calculateDebt(rows);
+  return calculateDebtByCustomer((result.data ?? []) as TruckRawRow[]);
 }
 
-export async function GET() {
+async function resolveCustomerById(supabase: Awaited<ReturnType<typeof createClient>>, khachHangId: number) {
+  const result = await supabase
+    .from('khach_hang')
+    .select('*')
+    .eq('id', khachHangId)
+    .maybeSingle();
+
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  if (!result.data) {
+    throw new Error('Không tìm thấy khách hàng đã chọn');
+  }
+
+  const typed = result.data as Record<string, unknown>;
+  const name =
+    (typed.ten as string | undefined) ??
+    (typed.ten_khach_hang as string | undefined) ??
+    (typed.name as string | undefined) ??
+    (typed.ho_ten as string | undefined) ??
+    '';
+
+  if (!name.trim()) {
+    throw new Error('Khách hàng không hợp lệ');
+  }
+
+  return {
+    id: khachHangId,
+    name: name.trim(),
+  };
+}
+
+function parsePositiveInt(value: string | null, fallbackValue: number) {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallbackValue;
+  }
+  return parsed;
+}
+
+function isDateParam(value: string | null) {
+  if (!value) return true;
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+export async function GET(request: NextRequest) {
   const access = await ensureManagerAccess();
   if (!access.ok) {
     return NextResponse.json({ success: false, error: access.error }, { status: access.status });
   }
 
   try {
+    const searchParams = request.nextUrl.searchParams;
+    const page = parsePositiveInt(searchParams.get('page'), 1);
+    const limit = parsePositiveInt(searchParams.get('limit'), 20);
+    const safeLimit = [10, 20, 50].includes(limit) ? limit : 20;
+
+    const fromDate = searchParams.get('fromDate')?.trim() || '';
+    const toDate = searchParams.get('toDate')?.trim() || '';
+    const plate = searchParams.get('plate')?.trim().toLowerCase() || '';
+    const customer = searchParams.get('customer')?.trim().toLowerCase() || '';
+    const customerId = parsePositiveInt(searchParams.get('customerId'), 0);
+
+    if (!isDateParam(fromDate) || !isDateParam(toDate)) {
+      return NextResponse.json({ success: false, error: 'Định dạng ngày không hợp lệ (yyyy-MM-dd)' }, { status: 400 });
+    }
+
     const rows = await fetchTickets(access.supabase);
-    return NextResponse.json({ success: true, data: rows });
+
+    // Base filter for search/date/plate; used to build customer debt cards.
+    const filteredByBase = rows.filter((row) => {
+      const matchFromDate = !fromDate || row.ngay >= fromDate;
+      const matchToDate = !toDate || row.ngay <= toDate;
+      const matchPlate = !plate || row.bienSo.toLowerCase().includes(plate);
+      const matchCustomer =
+        !customer ||
+        row.khachHang.toLowerCase().includes(customer) ||
+        row.customerCode.toLowerCase().includes(customer);
+      return matchFromDate && matchToDate && matchPlate && matchCustomer;
+    });
+
+    const customerDebts = buildCustomerDebts(filteredByBase);
+
+    const filteredRows = filteredByBase.filter((row) => {
+      if (!customerId) return true;
+      return row.customerId === customerId;
+    });
+
+    const sortedRows = [...filteredRows].sort((a, b) => {
+      const byDate = new Date(b.ngay).getTime() - new Date(a.ngay).getTime();
+      if (byDate !== 0) return byDate;
+      return b.id - a.id;
+    });
+
+    const total = sortedRows.length;
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+    const safePage = Math.min(page, totalPages);
+    const start = (safePage - 1) * safeLimit;
+    const paginatedRows = sortedRows.slice(start, start + safeLimit);
+
+    return NextResponse.json({
+      success: true,
+      data: paginatedRows,
+      customerDebts,
+      total,
+      page: safePage,
+      totalPages,
+    });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Không thể tải danh sách phiếu cân' },
@@ -201,7 +444,8 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = createTicketSchema.safeParse(body);
+  const normalizedBody = normalizeCreatePayload(body);
+  const parsed = createTicketSchema.safeParse(normalizedBody);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -212,6 +456,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const truckId = await getOrCreateTruckId(access.supabase, parsed.data.bienSo);
+    const customer = await resolveCustomerById(access.supabase, parsed.data.khachHangId);
     const woodTypeId = await getDefaultWoodTypeId(access.supabase);
     const soPhieu = await generateTicketNo(access.supabase);
     const thanhTien = parsed.data.soTan * parsed.data.donGia;
@@ -221,13 +466,14 @@ export async function POST(request: NextRequest) {
       .from('phieu_can')
       .insert({
         so_phieu: soPhieu,
-        ngay_can: format(new Date(), 'yyyy-MM-dd'),
+        ngay_can: parsed.data.ngayCan ?? format(new Date(), 'yyyy-MM-dd'),
         xe_hang_id: truckId,
         loai_van_ep_id: woodTypeId,
         khoi_luong_tan: parsed.data.soTan,
         don_gia_ap_dung: parsed.data.donGia,
         so_tien_da_tra: soTienDaTra,
-        khach_hang: parsed.data.khachHang,
+        khach_hang_id: customer.id,
+        khach_hang: customer.name,
         ghi_chu: parsed.data.ghiChu || null,
         created_by: access.userId,
       })
@@ -297,6 +543,9 @@ export async function PATCH(request: NextRequest) {
 
     const typedTarget = target.data as { id: number; thanh_tien: number | string; so_tien_da_tra: number | string };
     const truckId = await getOrCreateTruckId(access.supabase, parsed.data.bienSo);
+    const customer = parsed.data.khachHangId
+      ? await resolveCustomerById(access.supabase, parsed.data.khachHangId)
+      : { id: null, name: parsed.data.khachHang ?? 'Khách lẻ' };
     const maxPay = parsed.data.soTan * parsed.data.donGia;
     const safePay = Math.min(parsed.data.thanhToan, maxPay);
 
@@ -307,7 +556,8 @@ export async function PATCH(request: NextRequest) {
         khoi_luong_tan: parsed.data.soTan,
         don_gia_ap_dung: parsed.data.donGia,
         so_tien_da_tra: safePay,
-        khach_hang: parsed.data.khachHang,
+        khach_hang_id: customer.id,
+        khach_hang: customer.name,
         ghi_chu: parsed.data.ghiChu || null,
       })
       .eq('id', parsed.data.id);
@@ -349,7 +599,9 @@ export async function DELETE(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = deleteTicketSchema.safeParse(body);
+  const bodyId = toNumber((body as { id?: unknown } | null)?.id);
+  const queryId = parsePositiveInt(request.nextUrl.searchParams.get('id'), 0);
+  const parsed = deleteTicketSchema.safeParse({ id: bodyId || queryId });
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -372,6 +624,12 @@ export async function DELETE(request: NextRequest) {
 
     if (deleteTicket.error) {
       return NextResponse.json({ success: false, error: deleteTicket.error.message }, { status: 500 });
+    }
+
+    // Keep compatibility with environments that provide an RPC recalc function.
+    const recalculateResult = await access.supabase.rpc('recalculate_all_debt');
+    if (recalculateResult.error && recalculateResult.error.code !== '42883') {
+      return NextResponse.json({ success: false, error: recalculateResult.error.message }, { status: 500 });
     }
 
     const rows = await fetchTickets(access.supabase);

@@ -636,6 +636,7 @@ alter table public.cham_cong enable row level security;
 alter table public.tong_tien_cong_ngay enable row level security;
 alter table public.loai_van_ep enable row level security;
 alter table public.xe_hang enable row level security;
+alter table public.khach_hang enable row level security;
 alter table public.phieu_can enable row level security;
 alter table public.lich_su_thanh_toan enable row level security;
 alter table public.luong_thang enable row level security;
@@ -757,6 +758,21 @@ create policy xe_hang_viewer_read on public.xe_hang
 for select
 using (public.has_any_role(array['Viewer']::public.app_role[]));
 
+-- khach_hang
+create policy khach_hang_admin_all on public.khach_hang
+for all
+using (public.has_any_role(array['Admin']::public.app_role[]))
+with check (public.has_any_role(array['Admin']::public.app_role[]));
+
+create policy khach_hang_ketoan_rw on public.khach_hang
+for all
+using (public.has_any_role(array['KeToan']::public.app_role[]))
+with check (public.has_any_role(array['KeToan']::public.app_role[]));
+
+create policy khach_hang_viewer_read on public.khach_hang
+for select
+using (public.has_any_role(array['Viewer']::public.app_role[]));
+
 -- phieu_can
 create policy phieu_can_admin_all on public.phieu_can
 for all
@@ -825,6 +841,7 @@ create index if not exists idx_tong_tien_cong_ngay_ngay on public.tong_tien_cong
 create index if not exists idx_phieu_can_ngay_can on public.phieu_can(ngay_can);
 create index if not exists idx_phieu_can_created_at on public.phieu_can(created_at);
 create index if not exists idx_cong_nhan_ho_ten on public.cong_nhan(ho_ten);
+create index if not exists idx_khach_hang_ten on public.khach_hang(ten_khach_hang);
 create index if not exists idx_lich_su_thanh_toan_date on public.lich_su_thanh_toan(ngay_thanh_toan);
 create index if not exists idx_lich_su_thanh_toan_ticket on public.lich_su_thanh_toan(phieu_can_id);
 create index if not exists idx_luong_thang_month_year on public.luong_thang(nam, thang);
@@ -843,3 +860,119 @@ alter table if exists public.lich_su_thanh_toan
   add column if not exists nguoi_thu text;
 
 -- End of schema.sql
+
+
+
+-- ============================================
+-- CHỈ THÊM BẢNG KHÁCH HÀNG (KHÔNG ẢNH HƯỞNG DỮ LIỆU CŨ)
+-- Dự án: VanEpManager (Toàn Tâm Phát)
+-- ============================================
+
+-- 1. Tạo bảng khách hàng (nếu chưa có)
+CREATE TABLE IF NOT EXISTS khach_hang (
+  id SERIAL PRIMARY KEY,
+  ma_khach_hang TEXT,
+  ten_khach_hang TEXT NOT NULL,
+  so_dien_thoai TEXT,
+  dia_chi TEXT,
+  email TEXT,
+  ghi_chu TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 2. Thêm cột khach_hang_id vào bảng phieu_can (nếu chưa có)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'phieu_can' AND column_name = 'khach_hang_id'
+    ) THEN
+        ALTER TABLE phieu_can ADD COLUMN khach_hang_id INTEGER;
+    END IF;
+END $$;
+
+-- 3. Copy dữ liệu khách hàng từ phieu_can sang bảng mới (chỉ copy nếu chưa có)
+DO $$ 
+BEGIN
+    IF (SELECT COUNT(*) FROM khach_hang) = 0 THEN
+        INSERT INTO khach_hang (ten_khach_hang)
+        SELECT DISTINCT khach_hang
+        FROM phieu_can
+        WHERE khach_hang IS NOT NULL 
+          AND khach_hang != ''
+          AND khach_hang != ' '
+        ORDER BY khach_hang;
+    END IF;
+END $$;
+
+-- 4. Tạo mã khách hàng tự động (KH001, KH002...)
+UPDATE khach_hang
+SET ma_khach_hang = CONCAT('KH', LPAD(id::TEXT, 3, '0'))
+WHERE ma_khach_hang IS NULL;
+
+-- 5. Thêm UNIQUE cho ma_khach_hang (nếu chưa có)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'khach_hang_ma_unique'
+        AND table_name = 'khach_hang'
+    ) THEN
+        ALTER TABLE khach_hang ADD CONSTRAINT khach_hang_ma_unique UNIQUE (ma_khach_hang);
+    END IF;
+END $$;
+
+-- 6. Thêm NOT NULL cho ma_khach_hang
+ALTER TABLE khach_hang ALTER COLUMN ma_khach_hang SET NOT NULL;
+
+-- 7. Thêm UNIQUE cho ten_khach_hang (nếu chưa có)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'khach_hang_ten_unique'
+        AND table_name = 'khach_hang'
+    ) THEN
+        ALTER TABLE khach_hang ADD CONSTRAINT khach_hang_ten_unique UNIQUE (ten_khach_hang);
+    END IF;
+END $$;
+
+-- 8. Cập nhật khach_hang_id cho phieu_can (từ dữ liệu cũ)
+UPDATE phieu_can pc
+SET khach_hang_id = kh.id
+FROM khach_hang kh
+WHERE pc.khach_hang = kh.ten_khach_hang
+  AND pc.khach_hang IS NOT NULL
+  AND pc.khach_hang != ''
+  AND pc.khach_hang_id IS NULL;
+
+-- 9. Thêm khóa ngoại (nếu chưa có)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.table_constraints 
+        WHERE constraint_name = 'phieu_can_khach_hang_id_fkey'
+        AND table_name = 'phieu_can'
+    ) THEN
+        ALTER TABLE phieu_can
+        ADD CONSTRAINT phieu_can_khach_hang_id_fkey 
+        FOREIGN KEY (khach_hang_id) 
+        REFERENCES khach_hang(id) 
+        ON DELETE SET NULL;
+    END IF;
+END $$;
+
+-- 10. Tạo index
+CREATE INDEX IF NOT EXISTS idx_phieu_can_khach_hang_id ON phieu_can(khach_hang_id);
+
+-- 11. Kiểm tra kết quả
+SELECT '📊 KẾT QUẢ' AS title;
+SELECT 'Khách hàng' as item, COUNT(*) as so_luong FROM khach_hang
+UNION ALL
+SELECT 'Phiếu đã có khach_hang_id', COUNT(*) FROM phieu_can WHERE khach_hang_id IS NOT NULL;
+
+SELECT '📋 DANH SÁCH KHÁCH HÀNG' AS title;
+SELECT id, ma_khach_hang, ten_khach_hang FROM khach_hang ORDER BY id;
+
+SELECT '✅ ĐÃ THÊM BẢNG KHÁCH HÀNG THÀNH CÔNG!' AS status;

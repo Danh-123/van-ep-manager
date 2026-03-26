@@ -1,15 +1,39 @@
 'use client';
 
-import { format } from 'date-fns';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import TruckFilter, { type TruckFilterValues } from '@/components/trucks/TruckFilter';
+import CustomerDebtCard from '@/components/trucks/CustomerDebtCard';
+import TruckForm from '@/components/trucks/TruckForm';
+import TruckPagination from '@/components/trucks/TruckPagination';
+import EditTicketModal from '@/components/trucks/EditTicketModal';
+import TruckTable from '@/components/trucks/TruckTable';
 import { useMounted } from '@/hooks/useMounted';
+import { exportTrucksExcel } from '@/lib/excel/exportTrucks';
 import type { DebtCalculatedRow } from '@/lib/trucks/debtCalculator';
+
+type TruckRow = DebtCalculatedRow & {
+  customerId: number | null;
+  customerCode: string;
+  customerName: string;
+};
+
+type CustomerDebtItem = {
+  customerId: number;
+  customerCode: string;
+  customerName: string;
+  totalDebt: number;
+  ticketCount: number;
+};
 
 type ApiResponse = {
   success: boolean;
   error?: string;
-  data?: DebtCalculatedRow[];
+  data?: TruckRow[];
+  customerDebts?: CustomerDebtItem[];
+  total?: number;
+  page?: number;
+  totalPages?: number;
 };
 
 type TicketForm = {
@@ -17,7 +41,7 @@ type TicketForm = {
   soTan: string;
   donGia: string;
   thanhToan: string;
-  khachHang: string;
+  khachHangId: string;
   ghiChu: string;
 };
 
@@ -25,9 +49,16 @@ const defaultForm: TicketForm = {
   bienSo: '',
   soTan: '',
   donGia: '',
-  thanhToan: '',
-  khachHang: '',
+  thanhToan: '0',
+  khachHangId: '',
   ghiChu: '',
+};
+
+const defaultFilter: TruckFilterValues = {
+  fromDate: '',
+  toDate: '',
+  plate: '',
+  customer: '',
 };
 
 function formatCurrency(value: number) {
@@ -36,22 +67,42 @@ function formatCurrency(value: number) {
 
 export default function TrucksPage() {
   const mounted = useMounted();
-  const [rows, setRows] = useState<DebtCalculatedRow[]>([]);
+  const [rows, setRows] = useState<TruckRow[]>([]);
+  const [customerDebts, setCustomerDebts] = useState<CustomerDebtItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   const [form, setForm] = useState<TicketForm>(defaultForm);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<TicketForm>(defaultForm);
+  const [editingTicket, setEditingTicket] = useState<DebtCalculatedRow | null>(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [draftFilter, setDraftFilter] = useState<TruckFilterValues>(defaultFilter);
+  const [appliedFilter, setAppliedFilter] = useState<TruckFilterValues>(defaultFilter);
+  const [activeCustomerId, setActiveCustomerId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [exporting, setExporting] = useState(false);
 
   const loadRows = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/trucks', { cache: 'no-store' });
+      const searchParams = new URLSearchParams({
+        page: String(page),
+        limit: String(limit),
+      });
+
+      if (appliedFilter.fromDate) searchParams.set('fromDate', appliedFilter.fromDate);
+      if (appliedFilter.toDate) searchParams.set('toDate', appliedFilter.toDate);
+      if (appliedFilter.plate.trim()) searchParams.set('plate', appliedFilter.plate.trim());
+      if (appliedFilter.customer.trim()) searchParams.set('customer', appliedFilter.customer.trim());
+      if (activeCustomerId) searchParams.set('customerId', String(activeCustomerId));
+
+      const response = await fetch(`/api/trucks?${searchParams.toString()}`, { cache: 'no-store' });
       const json = (await response.json()) as ApiResponse;
 
       if (!response.ok || !json.success || !json.data) {
@@ -59,13 +110,50 @@ export default function TrucksPage() {
       }
 
       setRows(json.data);
+      setCustomerDebts(json.customerDebts ?? []);
+      setTotal(json.total ?? 0);
+      setTotalPages(json.totalPages ?? 1);
+      setPage(json.page ?? page);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Không thể tải danh sách phiếu cân');
       setRows([]);
+      setCustomerDebts([]);
+      setTotal(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeCustomerId, appliedFilter.customer, appliedFilter.fromDate, appliedFilter.plate, appliedFilter.toDate, limit, page]);
+
+  const fetchTruckPage = useCallback(
+    async (targetPage: number, targetLimit: number, filters: TruckFilterValues) => {
+      const searchParams = new URLSearchParams({
+        page: String(targetPage),
+        limit: String(targetLimit),
+      });
+
+      if (filters.fromDate) searchParams.set('fromDate', filters.fromDate);
+      if (filters.toDate) searchParams.set('toDate', filters.toDate);
+      if (filters.plate.trim()) searchParams.set('plate', filters.plate.trim());
+      if (filters.customer.trim()) searchParams.set('customer', filters.customer.trim());
+      if (activeCustomerId) searchParams.set('customerId', String(activeCustomerId));
+
+      const response = await fetch(`/api/trucks?${searchParams.toString()}`, { cache: 'no-store' });
+      const json = (await response.json()) as ApiResponse;
+
+      if (!response.ok || !json.success || !json.data) {
+        throw new Error(json.error || 'Không thể tải danh sách phiếu cân');
+      }
+
+      return {
+        rows: json.data,
+        total: json.total ?? 0,
+        totalPages: json.totalPages ?? 1,
+        page: json.page ?? targetPage,
+      };
+    },
+    [activeCustomerId],
+  );
 
   useEffect(() => {
     if (!mounted) return;
@@ -85,21 +173,22 @@ export default function TrucksPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          bienSo: form.bienSo,
-          soTan: Number(form.soTan),
-          donGia: Number(form.donGia),
-          thanhToan: Number(form.thanhToan || 0),
-          khachHang: form.khachHang,
-          ghiChu: form.ghiChu,
+          ngay_can: new Date().toISOString().slice(0, 10),
+          bien_so_xe: form.bienSo,
+          khoi_luong_tan: Number(form.soTan),
+          don_gia_ap_dung: Number(form.donGia),
+          so_tien_da_tra: Number(form.thanhToan || 0),
+          khach_hang_id: Number(form.khachHangId),
+          ghi_chu: form.ghiChu,
         }),
       });
 
       const json = (await response.json()) as ApiResponse;
-      if (!response.ok || !json.success || !json.data) {
+      if (!response.ok || !json.success) {
         throw new Error(json.error || 'Không thể tạo phiếu cân');
       }
 
-      setRows(json.data);
+      await loadRows();
       setForm(defaultForm);
       setSuccess('Đã thêm phiếu cân và cập nhật công nợ lũy kế.');
     } catch (submitError) {
@@ -118,22 +207,16 @@ export default function TrucksPage() {
     setSuccess(null);
 
     try {
-      const response = await fetch('/api/trucks', {
+      const response = await fetch(`/api/trucks/${id}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
       });
 
       const json = (await response.json()) as ApiResponse;
-      if (!response.ok || !json.success || !json.data) {
+      if (!response.ok || !json.success) {
         throw new Error(json.error || 'Không thể xóa phiếu cân');
       }
 
-      setRows(json.data);
-      if (editingId === id) {
-        setEditingId(null);
-        setEditForm(defaultForm);
-      }
+      await loadRows();
       setSuccess('Đã xóa phiếu và tính lại công nợ các dòng phía dưới.');
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : 'Không thể xóa phiếu cân');
@@ -142,56 +225,64 @@ export default function TrucksPage() {
     }
   };
 
-  const startEdit = (row: DebtCalculatedRow) => {
-    setEditingId(row.id);
-    setEditForm({
-      bienSo: row.bienSo,
-      soTan: String(row.soTan),
-      donGia: String(row.donGia),
-      thanhToan: String(row.thanhToan),
-      khachHang: row.khachHang,
-      ghiChu: row.ghiChu,
-    });
+  const openEditModal = (row: DebtCalculatedRow) => {
+    setEditingTicket(row);
+    setEditModalOpen(true);
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditForm(defaultForm);
+  const handleSavedFromModal = async (message: string) => {
+    setError(null);
+    setSuccess(message);
+    await loadRows();
   };
 
-  const saveEdit = async (id: number) => {
-    setSubmitting(true);
+  const handleApplyFilters = () => {
+    setPage(1);
+    setAppliedFilter(draftFilter);
+  };
+
+  const handleResetFilters = () => {
+    setPage(1);
+    setActiveCustomerId(null);
+    setDraftFilter(defaultFilter);
+    setAppliedFilter(defaultFilter);
+  };
+
+  const handleSelectCustomer = (customerId: number | null) => {
+    setPage(1);
+    setActiveCustomerId(customerId);
+  };
+
+  const handlePageChange = (nextPage: number) => {
+    if (nextPage < 1 || nextPage > totalPages) return;
+    setPage(nextPage);
+  };
+
+  const handleLimitChange = (nextLimit: number) => {
+    setLimit(nextLimit);
+    setPage(1);
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
     setError(null);
     setSuccess(null);
 
     try {
-      const response = await fetch('/api/trucks', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          bienSo: editForm.bienSo,
-          soTan: Number(editForm.soTan),
-          donGia: Number(editForm.donGia),
-          thanhToan: Number(editForm.thanhToan || 0),
-          khachHang: editForm.khachHang,
-          ghiChu: editForm.ghiChu,
-        }),
-      });
+      const first = await fetchTruckPage(1, 50, appliedFilter);
+      const allRows: DebtCalculatedRow[] = [...first.rows];
 
-      const json = (await response.json()) as ApiResponse;
-      if (!response.ok || !json.success || !json.data) {
-        throw new Error(json.error || 'Không thể cập nhật phiếu cân');
+      for (let currentPage = 2; currentPage <= first.totalPages; currentPage += 1) {
+        const next = await fetchTruckPage(currentPage, 50, appliedFilter);
+        allRows.push(...next.rows);
       }
 
-      setRows(json.data);
-      setEditingId(null);
-      setEditForm(defaultForm);
-      setSuccess('Đã lưu thay đổi và tính lại toàn bộ công nợ.');
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Không thể cập nhật phiếu cân');
+      await exportTrucksExcel(allRows);
+      setSuccess('Xuất Excel công nợ thành công.');
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : 'Không thể xuất Excel');
     } finally {
-      setSubmitting(false);
+      setExporting(false);
     }
   };
 
@@ -200,7 +291,7 @@ export default function TrucksPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 px-4 md:px-6 lg:px-8">
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h1 className="text-2xl font-semibold text-slate-900">Quản lý xe hàng và phiếu cân</h1>
         <p className="mt-1 text-sm text-slate-600">
@@ -208,74 +299,14 @@ export default function TrucksPage() {
         </p>
       </section>
 
-      <form onSubmit={handleCreate} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">Thêm phiếu mới</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <input
-            type="text"
-            placeholder="Biển số"
-            value={form.bienSo}
-            onChange={(event) => setForm((prev) => ({ ...prev, bienSo: event.target.value }))}
-            className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-            required
-          />
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="Số tấn"
-            value={form.soTan}
-            onChange={(event) => setForm((prev) => ({ ...prev, soTan: event.target.value }))}
-            className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-            required
-          />
-          <input
-            type="number"
-            step="1000"
-            min="0"
-            placeholder="Đơn giá"
-            value={form.donGia}
-            onChange={(event) => setForm((prev) => ({ ...prev, donGia: event.target.value }))}
-            className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-            required
-          />
-          <input
-            type="number"
-            step="1000"
-            min="0"
-            placeholder="Thanh toán"
-            value={form.thanhToan}
-            onChange={(event) => setForm((prev) => ({ ...prev, thanhToan: event.target.value }))}
-            className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-          />
-          <input
-            type="text"
-            placeholder="Khách hàng"
-            value={form.khachHang}
-            onChange={(event) => setForm((prev) => ({ ...prev, khachHang: event.target.value }))}
-            className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-            required
-          />
-          <input
-            type="text"
-            placeholder="Ghi chú"
-            value={form.ghiChu}
-            onChange={(event) => setForm((prev) => ({ ...prev, ghiChu: event.target.value }))}
-            className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-          />
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-lg bg-[#0B7285] px-4 py-2 text-sm font-medium text-white hover:bg-[#095C6D] disabled:opacity-60"
-          >
-            {submitting ? 'Đang lưu...' : 'Thêm phiếu'}
-          </button>
-          <span className="text-sm text-slate-600">Ngày tạo: {format(new Date(), 'dd/MM/yyyy')}</span>
-        </div>
-      </form>
+      <TruckForm
+        form={form}
+        submitting={submitting}
+        exporting={exporting}
+        onSubmit={handleCreate}
+        onChange={setForm}
+        onExport={() => void handleExport()}
+      />
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
       {success && (
@@ -284,194 +315,50 @@ export default function TrucksPage() {
         </div>
       )}
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
-          Tổng nợ còn lại: <span className="font-semibold text-red-700">{formatCurrency(totalRemain)}</span>
-        </div>
+      <CustomerDebtCard items={customerDebts} activeCustomerId={activeCustomerId} onSelect={handleSelectCustomer} />
 
-        <div className="overflow-x-auto">
-          <table className="min-w-[1320px] divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50 text-left text-slate-700">
-              <tr>
-                <th className="px-3 py-2">Ngày</th>
-                <th className="px-3 py-2">Biển số</th>
-                <th className="px-3 py-2">Số tấn</th>
-                <th className="px-3 py-2">Đơn giá</th>
-                <th className="px-3 py-2">Thành tiền</th>
-                <th className="px-3 py-2">Công nợ</th>
-                <th className="px-3 py-2">Thanh toán</th>
-                <th className="px-3 py-2">Còn lại</th>
-                <th className="px-3 py-2">Công thức tính</th>
-                <th className="px-3 py-2">Khách hàng</th>
-                <th className="px-3 py-2">Ghi chú</th>
-                <th className="px-3 py-2">Hành động</th>
-              </tr>
-            </thead>
+      <section className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_280px] xl:items-start">
+        <TruckFilter
+          values={draftFilter}
+          loading={loading || submitting}
+          onChange={setDraftFilter}
+          onApply={handleApplyFilters}
+          onReset={handleResetFilters}
+        />
 
-            <tbody className="divide-y divide-slate-100 bg-white">
-              {loading && (
-                <tr>
-                  <td colSpan={12} className="px-3 py-8 text-center text-slate-500">
-                    Đang tải dữ liệu...
-                  </td>
-                </tr>
-              )}
-
-              {!loading && rows.length === 0 && (
-                <tr>
-                  <td colSpan={12} className="px-3 py-8 text-center text-slate-500">
-                    Chưa có phiếu cân nào.
-                  </td>
-                </tr>
-              )}
-
-              {!loading &&
-                rows.map((row) => {
-                  const isEditing = editingId === row.id;
-
-                  return (
-                    <tr key={row.id} className="align-top">
-                      <td className="px-3 py-3 text-slate-700">{format(new Date(row.ngay), 'dd/MM/yyyy')}</td>
-
-                      <td className="px-3 py-3">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editForm.bienSo}
-                            onChange={(event) => setEditForm((prev) => ({ ...prev, bienSo: event.target.value }))}
-                            className="h-9 w-28 rounded border border-slate-200 px-2"
-                          />
-                        ) : (
-                          <span className="font-medium text-slate-800">{row.bienSo}</span>
-                        )}
-                      </td>
-
-                      <td className="px-3 py-3">
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={editForm.soTan}
-                            onChange={(event) => setEditForm((prev) => ({ ...prev, soTan: event.target.value }))}
-                            className="h-9 w-24 rounded border border-slate-200 px-2"
-                          />
-                        ) : (
-                          <span className="text-slate-700">{row.soTan.toLocaleString('vi-VN')}</span>
-                        )}
-                      </td>
-
-                      <td className="px-3 py-3">
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            step="1000"
-                            min="0"
-                            value={editForm.donGia}
-                            onChange={(event) => setEditForm((prev) => ({ ...prev, donGia: event.target.value }))}
-                            className="h-9 w-28 rounded border border-slate-200 px-2"
-                          />
-                        ) : (
-                          <span className="text-slate-700">{formatCurrency(row.donGia)}</span>
-                        )}
-                      </td>
-
-                      <td className="px-3 py-3 font-semibold text-emerald-700">{formatCurrency(row.thanhTien)}</td>
-
-                      <td className="px-3 py-3 font-semibold text-amber-700">{formatCurrency(row.congNo)}</td>
-
-                      <td className="px-3 py-3">
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            step="1000"
-                            min="0"
-                            value={editForm.thanhToan}
-                            onChange={(event) => setEditForm((prev) => ({ ...prev, thanhToan: event.target.value }))}
-                            className="h-9 w-28 rounded border border-slate-200 px-2 text-blue-700"
-                          />
-                        ) : (
-                          <span className="font-semibold text-blue-700">{formatCurrency(row.thanhToan)}</span>
-                        )}
-                      </td>
-
-                      <td className="px-3 py-3 font-semibold text-red-700">{formatCurrency(row.conLai)}</td>
-
-                      <td className="max-w-xs px-3 py-3 text-xs text-slate-600">{row.formulaText}</td>
-
-                      <td className="px-3 py-3">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editForm.khachHang}
-                            onChange={(event) => setEditForm((prev) => ({ ...prev, khachHang: event.target.value }))}
-                            className="h-9 w-36 rounded border border-slate-200 px-2"
-                          />
-                        ) : (
-                          <span className="text-slate-700">{row.khachHang}</span>
-                        )}
-                      </td>
-
-                      <td className="px-3 py-3">
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            value={editForm.ghiChu}
-                            onChange={(event) => setEditForm((prev) => ({ ...prev, ghiChu: event.target.value }))}
-                            className="h-9 w-40 rounded border border-slate-200 px-2"
-                          />
-                        ) : (
-                          <span className="text-slate-600">{row.ghiChu || '-'}</span>
-                        )}
-                      </td>
-
-                      <td className="px-3 py-3">
-                        {isEditing ? (
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => void saveEdit(row.id)}
-                              disabled={submitting}
-                              className="rounded bg-[#0B7285] px-2 py-1 text-xs text-white hover:bg-[#095C6D] disabled:opacity-60"
-                            >
-                              Lưu
-                            </button>
-                            <button
-                              type="button"
-                              onClick={cancelEdit}
-                              className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                            >
-                              Hủy
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => startEdit(row)}
-                              disabled={submitting}
-                              className="rounded border border-[#0B7285] px-2 py-1 text-xs text-[#0B7285] hover:bg-[#0B7285]/10"
-                            >
-                              Sửa
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleDelete(row.id)}
-                              disabled={submitting}
-                              className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
-                            >
-                              Xóa
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-            </tbody>
-          </table>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-medium text-slate-600">Tổng nợ còn lại</p>
+          <p className="mt-2 text-2xl font-semibold text-red-700">{formatCurrency(totalRemain)}</p>
         </div>
       </section>
+
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <TruckTable
+          rows={rows}
+          loading={loading}
+          submitting={submitting}
+          onEdit={openEditModal}
+          onDelete={(id) => void handleDelete(id)}
+          onCustomerClick={handleSelectCustomer}
+        />
+
+        <TruckPagination
+          page={page}
+          totalPages={totalPages}
+          limit={limit}
+          total={total}
+          loading={loading || submitting}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
+        />
+      </section>
+
+      <EditTicketModal
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        ticket={editingTicket}
+        onSaved={handleSavedFromModal}
+      />
     </div>
   );
 }
