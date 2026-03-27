@@ -35,10 +35,10 @@ function resolveMonth(monthValue?: string) {
 }
 
 function statusLabel(status: PersonalAttendanceDay['status']) {
-  if (status === 'CoMat') return 'Co mat';
-  if (status === 'Nghi') return 'Nghi';
-  if (status === 'NghiPhep') return 'Nghi phep';
-  return 'Lam them';
+  if (status === 'CoMat') return 'Có mặt';
+  if (status === 'Nghi') return 'Nghỉ';
+  if (status === 'NghiPhep') return 'Nghỉ phép';
+  return 'Làm thêm';
 }
 
 export default async function MyAttendancePage({ searchParams }: MyAttendancePageProps) {
@@ -69,8 +69,8 @@ export default async function MyAttendancePage({ searchParams }: MyAttendancePag
     return (
       <div className="space-y-5">
         <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h1 className="text-2xl font-semibold text-slate-900">Cham cong ca nhan</h1>
-          <p className="mt-1 text-sm text-slate-600">Thong tin cong nhan chua duoc lien ket voi tai khoan Viewer.</p>
+          <h1 className="text-2xl font-semibold text-slate-900">Chấm công cá nhân</h1>
+          <p className="mt-1 text-sm text-slate-600">Thông tin công nhân chưa được liên kết với tài khoản Viewer.</p>
         </header>
       </div>
     );
@@ -130,14 +130,14 @@ export default async function MyAttendancePage({ searchParams }: MyAttendancePag
   return (
     <div className="space-y-5">
       <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Cham cong ca nhan</h1>
-        <p className="mt-1 text-sm text-slate-600">Xem lich su cham cong theo thang cua ban.</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Chấm công cá nhân</h1>
+        <p className="mt-1 text-sm text-slate-600">Xem lịch sử chấm công theo tháng của bạn.</p>
       </header>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <form className="grid grid-cols-1 gap-3 sm:grid-cols-[260px_auto]" method="get">
           <div>
-            <label className="mb-1 block text-sm text-slate-700">Chon thang</label>
+            <label className="mb-1 block text-sm text-slate-700">Chọn tháng</label>
             <select
               name="month"
               defaultValue={monthKey}
@@ -156,7 +156,7 @@ export default async function MyAttendancePage({ searchParams }: MyAttendancePag
               type="submit"
               className="h-10 rounded-lg bg-[#2E7D32] px-4 text-sm font-medium text-white hover:bg-[#1B5E20]"
             >
-              Xem cham cong
+              Xem chấm công
             </button>
           </div>
         </form>
@@ -165,14 +165,14 @@ export default async function MyAttendancePage({ searchParams }: MyAttendancePag
       <PersonalCalendar monthKey={monthKey} rows={monthlyRows} />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-slate-900">Bang cham cong theo thang</h2>
+        <h2 className="text-base font-semibold text-slate-900">Bảng chấm công theo tháng</h2>
 
         <div className="mt-3 overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
-                <th className="px-3 py-2 font-medium">Ngay</th>
-                <th className="px-3 py-2 font-medium">Trang thai</th>
+                <th className="px-3 py-2 font-medium">Ngày</th>
+                <th className="px-3 py-2 font-medium">Trạng thái</th>
                 <th className="px-3 py-2 font-medium">Check-in</th>
                 <th className="px-3 py-2 font-medium">Check-out</th>
               </tr>

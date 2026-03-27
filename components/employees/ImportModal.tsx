@@ -10,11 +10,11 @@ import { importEmployees } from '@/app/(dashboard)/employees/actions';
 
 const previewRowSchema = z.object({
   maCongNhan: z.string().trim().optional(),
-  hoTen: z.string().trim().min(2, 'Ho ten bat buoc'),
+  hoTen: z.string().trim().min(2, 'Họ tên bắt buộc'),
   soDienThoai: z
     .string()
     .trim()
-    .regex(/^[0-9+\-() ]{8,20}$/, 'So dien thoai khong hop le')
+    .regex(/^[0-9+\-() ]{8,20}$/, 'Số điện thoại không hợp lệ')
     .optional()
     .or(z.literal('')),
   trangThai: z.enum(['DangLam', 'NghiViec']).optional(),
@@ -72,7 +72,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
 
     const fileName = file.name.toLowerCase();
     if (!fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
-      setError('Chi ho tro file .xlsx hoac .xls');
+      setError('Chỉ hỗ trợ file .xlsx hoặc .xls');
       setRows([]);
       return;
     }
@@ -88,7 +88,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
 
         const sheet = workbook.worksheets[0];
         if (!sheet) {
-          setError('Khong tim thay worksheet trong file.');
+          setError('Không tìm thấy worksheet trong file.');
           setRows([]);
           return;
         }
@@ -124,7 +124,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
 
         setRows(parsedRows);
       } catch {
-        setError('Khong the doc file Excel. Vui long kiem tra dinh dang file.');
+        setError('Không thể đọc file Excel. Vui lòng kiểm tra định dạng file.');
         setRows([]);
       }
     });
@@ -132,7 +132,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
 
   const handleImport = () => {
     if (validRows.length === 0) {
-      setError('Khong co dong hop le de import.');
+      setError('Không có dòng hợp lệ để import.');
       return;
     }
 
@@ -156,10 +156,10 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
       }
 
       const { inserted, updated, skipped, errors } = result.data;
-      setSummary(`Import xong: them moi ${inserted}, cap nhat ${updated}, bo qua ${skipped}.`);
+      setSummary(`Import xong: thêm mới ${inserted}, cập nhật ${updated}, bỏ qua ${skipped}.`);
 
       if (errors.length > 0) {
-        setError(`Co ${errors.length} dong loi. Dong dau tien: ${errors[0].row} - ${errors[0].message}`);
+        setError(`Có ${errors.length} dòng lỗi. Dòng đầu tiên: ${errors[0].row} - ${errors[0].message}`);
       }
 
       onImported();
@@ -172,7 +172,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[96vw] max-w-4xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
           <div className="mb-4 flex items-center justify-between">
-            <Dialog.Title className="text-lg font-semibold text-slate-900">Import Excel cong nhan</Dialog.Title>
+            <Dialog.Title className="text-lg font-semibold text-slate-900">Import Excel công nhân</Dialog.Title>
             <Dialog.Close asChild>
               <button
                 type="button"
@@ -188,7 +188,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
             <div className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50/60 p-4">
               <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2 text-sm font-medium text-white hover:bg-[#1B5E20]">
                 <Upload className="h-4 w-4" />
-                Chon file Excel
+                Chọn file Excel
                 <input
                   type="file"
                   accept=".xlsx,.xls"
@@ -198,12 +198,12 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
                 />
               </label>
               <p className="mt-2 text-xs text-slate-600">
-                File mau: cot 1 Ma, cot 2 Ho ten, cot 3 So dien thoai, cot 4 Trang thai (DangLam/NghiViec).
+                File mẫu: cột 1 Mã, cột 2 Họ tên, cột 3 Số điện thoại, cột 4 Trạng thái (DangLam/NghiViec).
               </p>
             </div>
 
             <div className="flex items-center gap-4 text-sm text-slate-700">
-              <span className="font-medium">Khi trung ma cong nhan:</span>
+              <span className="font-medium">Khi trùng mã công nhân:</span>
               <label className="inline-flex items-center gap-2">
                 <input
                   type="radio"
@@ -211,7 +211,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
                   onChange={() => setMode('update')}
                   disabled={isPending}
                 />
-                Cap nhat
+                Cập nhật
               </label>
               <label className="inline-flex items-center gap-2">
                 <input
@@ -220,7 +220,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
                   onChange={() => setMode('skip')}
                   disabled={isPending}
                 />
-                Bo qua
+                Bỏ qua
               </label>
             </div>
 
@@ -228,26 +228,26 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
               <div className="flex items-center justify-between border-b border-slate-200 px-3 py-2 text-sm">
                 <span className="font-medium text-slate-700">Preview du lieu</span>
                 <span className="text-slate-500">
-                  Hop le: {validRows.length} | Loi: {invalidRows.length}
+                  Hợp lệ: {validRows.length} | Lỗi: {invalidRows.length}
                 </span>
               </div>
               <div className="max-h-72 overflow-auto">
                 <table className="min-w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                      <th className="px-3 py-2 font-medium">Dong</th>
-                      <th className="px-3 py-2 font-medium">Ma</th>
-                      <th className="px-3 py-2 font-medium">Ho ten</th>
-                      <th className="px-3 py-2 font-medium">So dien thoai</th>
-                      <th className="px-3 py-2 font-medium">Trang thai</th>
-                      <th className="px-3 py-2 font-medium">Kiem tra</th>
+                      <th className="px-3 py-2 font-medium">Dòng</th>
+                      <th className="px-3 py-2 font-medium">Mã</th>
+                      <th className="px-3 py-2 font-medium">Họ tên</th>
+                      <th className="px-3 py-2 font-medium">Số điện thoại</th>
+                      <th className="px-3 py-2 font-medium">Trạng thái</th>
+                      <th className="px-3 py-2 font-medium">Kiểm tra</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.length === 0 ? (
                       <tr>
                         <td className="px-3 py-5 text-slate-500" colSpan={6}>
-                          Chua co du lieu preview.
+                          Chưa có dữ liệu preview.
                         </td>
                       </tr>
                     ) : (
@@ -259,7 +259,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
                           <td className="px-3 py-2">{row.soDienThoai || '-'}</td>
                           <td className="px-3 py-2">{row.trangThai || 'DangLam'}</td>
                           <td className={`px-3 py-2 text-xs ${row.error ? 'text-red-600' : 'text-emerald-700'}`}>
-                            {row.error ?? 'Hop le'}
+                            {row.error ?? 'Hợp lệ'}
                           </td>
                         </tr>
                       ))
@@ -278,7 +278,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
                   type="button"
                   className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Dong
+                  Đóng
                 </button>
               </Dialog.Close>
 
@@ -289,7 +289,7 @@ export default function ImportModal({ open, onOpenChange, onImported }: ImportMo
                 className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2 text-sm font-medium text-white hover:bg-[#1B5E20] disabled:opacity-60"
               >
                 {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Xac nhan import
+                Xác nhận import
               </button>
             </div>
           </div>

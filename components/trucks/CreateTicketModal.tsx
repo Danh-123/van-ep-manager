@@ -15,10 +15,10 @@ const createSchema = z.object({
   ngayCan: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   xeHangId: z.string().optional(),
   xeSoText: z.string().optional(),
-  loaiVanEpId: z.string().min(1, 'Vui long chon loai van ep'),
-  khoiLuongKg: z.number().positive('Trong luong phai lon hon 0'),
-  donGia: z.number().positive('Don gia phai lon hon 0'),
-  khachHang: z.string().trim().min(2, 'Khach hang bat buoc').max(120),
+  loaiVanEpId: z.string().min(1, 'Vui lòng chọn loại ván ép'),
+  khoiLuongKg: z.number().positive('Trọng lượng phải lớn hơn 0'),
+  donGia: z.number().positive('Đơn giá phải lớn hơn 0'),
+  khachHang: z.string().trim().min(2, 'Khách hàng bắt buộc').max(120),
   ghiChu: z.string().max(1000).optional(),
   thanhToanNgay: z.boolean(),
   soTienThanhToan: z.number().min(0),
@@ -143,7 +143,7 @@ export default function CreateTicketModal({
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
           <div className="mb-4 flex items-center justify-between">
-            <Dialog.Title className="text-lg font-semibold text-slate-900">Tao phieu can moi</Dialog.Title>
+            <Dialog.Title className="text-lg font-semibold text-slate-900">Tạo phiếu cân mới</Dialog.Title>
             <Dialog.Close asChild>
               <button type="button" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
                 <X className="h-4 w-4" />
@@ -154,7 +154,7 @@ export default function CreateTicketModal({
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ngayCan">Ngay</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ngayCan">Ngày</label>
                 <input
                   id="ngayCan"
                   type="date"
@@ -166,13 +166,13 @@ export default function CreateTicketModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="xeHangId">Xe so</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="xeHangId">Xe số</label>
                 <select
                   id="xeHangId"
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
                   {...register('xeHangId')}
                 >
-                  <option value="">-- Chon xe co san --</option>
+                  <option value="">-- Chọn xe có sẵn --</option>
                   {trucks.map((truck) => (
                     <option key={truck.id} value={String(truck.id)}>
                       {truck.label}
@@ -180,21 +180,21 @@ export default function CreateTicketModal({
                   ))}
                 </select>
                 <input
-                  placeholder="Hoac nhap bien so moi"
+                  placeholder="Hoặc nhập biển số mới"
                   className="mt-2 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
                   {...register('xeSoText')}
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="loaiVanEpId">Loai van ep</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="loaiVanEpId">Loại ván ép</label>
                 <select
                   id="loaiVanEpId"
                   value={selectedWoodTypeId || ''}
                   onChange={(event) => onWoodTypeChange(event.target.value)}
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
                 >
-                  <option value="">-- Chon loai van --</option>
+                  <option value="">-- Chọn loại ván --</option>
                   {woodTypes.map((item) => (
                     <option key={item.id} value={String(item.id)}>
                       {item.label} ({item.donVi})
@@ -205,7 +205,7 @@ export default function CreateTicketModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="khoiLuongKg">Trong luong (kg)</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="khoiLuongKg">Trọng lượng (kg)</label>
                 <input
                   id="khoiLuongKg"
                   type="number"
@@ -218,7 +218,7 @@ export default function CreateTicketModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="donGia">Don gia</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="donGia">Đơn giá</label>
                 <input
                   id="donGia"
                   type="number"
@@ -231,7 +231,7 @@ export default function CreateTicketModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="khachHang">Khach hang</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="khachHang">Khách hàng</label>
                 <input
                   id="khachHang"
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
@@ -241,7 +241,7 @@ export default function CreateTicketModal({
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ghiChu">Ghi chu</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ghiChu">Ghi chú</label>
                 <textarea
                   id="ghiChu"
                   rows={3}
@@ -252,17 +252,17 @@ export default function CreateTicketModal({
             </div>
 
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-              Thanh tien du kien: <span className="font-semibold">{formatMoney(thanhTien)}</span>
+              Thành tiền dự kiến: <span className="font-semibold">{formatMoney(thanhTien)}</span>
             </div>
 
             <div className="space-y-2 rounded-xl border border-slate-200 p-3">
               <label className="inline-flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" className="h-4 w-4" {...register('thanhToanNgay')} />
-                Thanh toan ngay
+                Thanh toán ngay
               </label>
               {thanhToanNgay && (
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="soTienThanhToan">So tien thanh toan</label>
+                  <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="soTienThanhToan">Số tiền thanh toán</label>
                   <input
                     id="soTienThanhToan"
                     type="number"
@@ -283,7 +283,7 @@ export default function CreateTicketModal({
                   type="button"
                   className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Huy
+                  Hủy
                 </button>
               </Dialog.Close>
               <button
@@ -292,7 +292,7 @@ export default function CreateTicketModal({
                 className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2 text-sm font-medium text-white hover:bg-[#1B5E20] disabled:opacity-70"
               >
                 {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Tao phieu
+                Tạo phiếu
               </button>
             </div>
           </form>

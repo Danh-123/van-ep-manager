@@ -27,12 +27,12 @@ export default function DebtSummaryTable({ rows, loading = false, onViewDetail }
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
               <th className="px-4 py-3 font-medium">STT</th>
-              <th className="px-4 py-3 font-medium">Ma khach hang</th>
-              <th className="px-4 py-3 font-medium">Ten khach hang</th>
-              <th className="px-4 py-3 font-medium">So dien thoai</th>
-              <th className="px-4 py-3 font-medium">So phieu</th>
-              <th className="px-4 py-3 font-medium">Tong no</th>
-              <th className="px-4 py-3 text-center font-medium">Thao tac</th>
+              <th className="px-4 py-3 font-medium">Mã khách hàng</th>
+              <th className="px-4 py-3 font-medium">Tên khách hàng</th>
+              <th className="px-4 py-3 font-medium">Số điện thoại</th>
+              <th className="px-4 py-3 font-medium">Số phiếu</th>
+              <th className="px-4 py-3 font-medium">Tổng nợ</th>
+              <th className="px-4 py-3 text-center font-medium">Thao tác</th>
             </tr>
           </thead>
           <tbody>
@@ -47,7 +47,7 @@ export default function DebtSummaryTable({ rows, loading = false, onViewDetail }
             ) : rows.length === 0 ? (
               <tr>
                 <td className="px-4 py-8 text-center text-slate-500" colSpan={7}>
-                  Khong co du lieu cong no.
+                  Không có dữ liệu công nợ.
                 </td>
               </tr>
             ) : (
@@ -67,7 +67,7 @@ export default function DebtSummaryTable({ rows, loading = false, onViewDetail }
                       onClick={() => onViewDetail(row)}
                       className="rounded-lg border border-[#0B7285] px-3 py-1.5 text-xs font-medium text-[#0B7285] hover:bg-[#0B7285]/10"
                     >
-                      Xem chi tiet
+                      Xem chi tiết
                     </button>
                   </td>
                 </tr>

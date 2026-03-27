@@ -16,7 +16,7 @@ export default function ExportButton({ onClick, loading = false }: ExportButtonP
       className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 px-4 py-2 text-sm font-medium text-[#1B5E20] hover:bg-emerald-50 disabled:opacity-60"
     >
       <Download className="h-4 w-4" />
-      {loading ? 'Dang xuat...' : 'Xuat Excel'}
+      {loading ? 'Đang xuất...' : 'Xuất Excel'}
     </button>
   );
 }

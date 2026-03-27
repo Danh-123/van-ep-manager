@@ -52,12 +52,12 @@ export default function DebtPage() {
     queryFn: async () => {
       const response = await fetch('/api/debt/summary', { cache: 'no-store' });
       if (!response.ok) {
-        throw new Error('Khong the tai tong hop cong no');
+        throw new Error('Không thể tải tổng hợp công nợ');
       }
 
       const json = (await response.json()) as { success: boolean; error?: string; data?: DebtSummaryItem[] };
       if (!json.success || !json.data) {
-        throw new Error(json.error || 'Khong the tai tong hop cong no');
+        throw new Error(json.error || 'Không thể tải tổng hợp công nợ');
       }
 
       return json.data;
@@ -73,12 +73,12 @@ export default function DebtPage() {
 
       const response = await fetch(`/api/debt/${activeCustomer.id}`, { cache: 'no-store' });
       if (!response.ok) {
-        throw new Error('Khong the tai chi tiet cong no');
+        throw new Error('Không thể tải chi tiết công nợ');
       }
 
       const json = (await response.json()) as { success: boolean; error?: string; data?: DebtDetailItem[] };
       if (!json.success || !json.data) {
-        throw new Error(json.error || 'Khong the tai chi tiet cong no');
+        throw new Error(json.error || 'Không thể tải chi tiết công nợ');
       }
 
       return json.data;
@@ -109,9 +109,9 @@ export default function DebtPage() {
       <header className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Cong no khach hang</h1>
-            <p className="mt-1 text-sm text-slate-600">So khach hang: {customerCount}</p>
-            <p className="mt-2 text-lg font-semibold text-red-600">Tong no phai thu: {formatMoney(totalDebt)}</p>
+            <h1 className="text-2xl font-semibold text-slate-900">Công nợ khách hàng</h1>
+            <p className="mt-1 text-sm text-slate-600">Số khách hàng: {customerCount}</p>
+            <p className="mt-2 text-lg font-semibold text-red-600">Tổng nợ phải thu: {formatMoney(totalDebt)}</p>
           </div>
         </div>
       </header>

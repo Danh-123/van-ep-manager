@@ -5,6 +5,7 @@ import { Loader2, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react';
 
 import MultiMonthView from '@/components/salary/MultiMonthView';
+import SalaryDetailModal from '@/components/salary/SalaryDetailModal';
 import { useMounted } from '@/hooks/useMounted';
 
 function getMonthKey(date: Date) {
@@ -71,6 +72,10 @@ export default function SalaryPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isPending] = useTransition();
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailWorkerId, setDetailWorkerId] = useState<number | null>(null);
+  const [detailWorkerName, setDetailWorkerName] = useState('');
+  const [detailMonth, setDetailMonth] = useState('');
 
   const monthOptions = useMemo(() => (mounted ? getMonthOptions() : []), [mounted]);
 
@@ -354,8 +359,22 @@ export default function SalaryPage() {
           onSaveAdjustments={handleSaveAdjustments}
           onRecalculate={handleRecalculate}
           onRemoveMonth={handleRemoveMonth}
+          onViewDetail={({ month, workerId, workerName }) => {
+            setDetailMonth(month);
+            setDetailWorkerId(workerId);
+            setDetailWorkerName(workerName);
+            setDetailOpen(true);
+          }}
         />
       )}
+
+      <SalaryDetailModal
+        open={detailOpen}
+        workerId={detailWorkerId}
+        workerName={detailWorkerName}
+        month={detailMonth}
+        onOpenChange={setDetailOpen}
+      />
     </div>
   );
 }

@@ -64,14 +64,14 @@ export default function CustomerDetailModal({
 
     sheet.columns = [
       { header: 'STT', key: 'stt', width: 7 },
-      { header: 'Ngay can', key: 'ngay_can', width: 14 },
-      { header: 'Bien so xe', key: 'bien_so_xe', width: 14 },
-      { header: 'Khoi luong (tan)', key: 'khoi_luong_tan', width: 16 },
-      { header: 'Thanh tien', key: 'thanh_tien', width: 16 },
-      { header: 'Da tra', key: 'so_tien_da_tra', width: 16 },
-      { header: 'Cong no', key: 'cong_no', width: 16 },
-      { header: 'Con lai', key: 'con_lai', width: 16 },
-      { header: 'Ghi chu', key: 'ghi_chu', width: 28 },
+      { header: 'Ngày cân', key: 'ngay_can', width: 14 },
+      { header: 'Biển số xe', key: 'bien_so_xe', width: 14 },
+      { header: 'Khối lượng (tấn)', key: 'khoi_luong_tan', width: 16 },
+      { header: 'Thành tiền', key: 'thanh_tien', width: 16 },
+      { header: 'Đã trả', key: 'so_tien_da_tra', width: 16 },
+      { header: 'Công nợ', key: 'cong_no', width: 16 },
+      { header: 'Còn lại', key: 'con_lai', width: 16 },
+      { header: 'Ghi chú', key: 'ghi_chu', width: 28 },
     ];
 
     rows.forEach((row, index) => {
@@ -111,9 +111,9 @@ export default function CustomerDetailModal({
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[96vw] max-w-6xl -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
           <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4">
             <div>
-              <Dialog.Title className="text-lg font-semibold text-slate-900">Chi tiet cong no khach hang</Dialog.Title>
+              <Dialog.Title className="text-lg font-semibold text-slate-900">Chi tiết công nợ khách hàng</Dialog.Title>
               <p className="mt-1 text-sm text-slate-600">
-                {customer ? `${customer.ma_khach_hang} - ${customer.ten_khach_hang}` : 'Chua chon khach hang'}
+                {customer ? `${customer.ma_khach_hang} - ${customer.ten_khach_hang}` : 'Chưa chọn khách hàng'}
               </p>
             </div>
             <Dialog.Close asChild>
@@ -124,25 +124,25 @@ export default function CustomerDetailModal({
           </div>
 
           <div className="border-b border-slate-200 bg-slate-50 px-5 py-3 text-sm text-slate-700">
-            <span className="font-medium">Tong no hien tai:</span>{' '}
+            <span className="font-medium">Tổng nợ hiện tại:</span>{' '}
             <span className={totalRemain > 0 ? 'font-semibold text-red-700' : 'font-semibold text-emerald-700'}>
               {formatMoney(totalRemain)}
             </span>
           </div>
 
           <div className="max-h-[55vh] overflow-auto px-5 py-4">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full table-fixed text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
-                  <th className="px-3 py-2.5 font-medium">STT</th>
-                  <th className="px-3 py-2.5 font-medium">Ngay can</th>
-                  <th className="px-3 py-2.5 font-medium">Bien so xe</th>
-                  <th className="px-3 py-2.5 font-medium">Khoi luong</th>
-                  <th className="px-3 py-2.5 font-medium">Thanh tien</th>
-                  <th className="px-3 py-2.5 font-medium">Da tra</th>
-                  <th className="px-3 py-2.5 font-medium">Cong no</th>
-                  <th className="px-3 py-2.5 font-medium">Con lai</th>
-                  <th className="px-3 py-2.5 text-center font-medium">Thao tac</th>
+                  <th className="w-[6%] px-3 py-2.5 font-medium">STT</th>
+                  <th className="w-[12%] px-3 py-2.5 font-medium">Ngày cân</th>
+                  <th className="w-[12%] px-3 py-2.5 font-medium">Biển số xe</th>
+                  <th className="w-[10%] px-3 py-2.5 text-right font-medium">Khối lượng</th>
+                  <th className="w-[12%] px-3 py-2.5 text-right font-medium">Thành tiền</th>
+                  <th className="w-[12%] px-3 py-2.5 text-right font-medium">Đã trả</th>
+                  <th className="w-[12%] px-3 py-2.5 text-right font-medium">Công nợ</th>
+                  <th className="w-[12%] px-3 py-2.5 text-right font-medium">Còn lại</th>
+                  <th className="w-[12%] px-3 py-2.5 text-center font-medium">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,7 +157,7 @@ export default function CustomerDetailModal({
                 ) : rows.length === 0 ? (
                   <tr>
                     <td className="px-3 py-8 text-center text-slate-500" colSpan={9}>
-                      Khong co du lieu.
+                      Không có dữ liệu.
                     </td>
                   </tr>
                 ) : (
@@ -166,11 +166,11 @@ export default function CustomerDetailModal({
                       <td className="px-3 py-2.5 text-slate-700">{index + 1}</td>
                       <td className="px-3 py-2.5 text-slate-700">{formatDate(row.ngay_can)}</td>
                       <td className="px-3 py-2.5 text-slate-800">{row.bien_so_xe}</td>
-                      <td className="px-3 py-2.5 text-slate-700">{row.khoi_luong_tan.toLocaleString('vi-VN')}</td>
-                      <td className="px-3 py-2.5 text-slate-700">{formatMoney(row.thanh_tien)}</td>
-                      <td className="px-3 py-2.5 text-slate-700">{formatMoney(row.so_tien_da_tra)}</td>
-                      <td className="px-3 py-2.5 text-slate-700">{formatMoney(row.cong_no)}</td>
-                      <td className={`px-3 py-2.5 font-semibold ${row.con_lai > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                      <td className="px-3 py-2.5 text-right text-slate-700">{row.khoi_luong_tan.toLocaleString('vi-VN')}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-700">{formatMoney(row.thanh_tien)}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-700">{formatMoney(row.so_tien_da_tra)}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-700">{formatMoney(row.cong_no)}</td>
+                      <td className={`px-3 py-2.5 text-right font-semibold ${row.con_lai > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
                         {formatMoney(row.con_lai)}
                       </td>
                       <td className="px-3 py-2.5 text-center">
@@ -181,7 +181,7 @@ export default function CustomerDetailModal({
                           className="inline-flex items-center gap-1 rounded-lg bg-[#0B7285] px-2.5 py-1.5 text-xs font-medium text-white hover:bg-[#095C6D] disabled:cursor-not-allowed disabled:bg-slate-300"
                         >
                           <Wallet className="h-3.5 w-3.5" />
-                          Thanh toan
+                          Thanh toán
                         </button>
                       </td>
                     </tr>
@@ -197,7 +197,7 @@ export default function CustomerDetailModal({
               onClick={() => onOpenChange(false)}
               className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
             >
-              Dong
+              Đóng
             </button>
             <button
               type="button"
@@ -206,7 +206,7 @@ export default function CustomerDetailModal({
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Download className="h-4 w-4" />
-              Xuat Excel
+              Xuất Excel
             </button>
           </div>
         </Dialog.Content>

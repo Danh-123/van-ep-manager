@@ -2,7 +2,7 @@
 
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
-import { Download, Loader2, RefreshCcw, Save, X } from 'lucide-react';
+import { Download, Eye, Loader2, RefreshCcw, Save, X } from 'lucide-react';
 
 type SalaryRow = {
   workerId: number;
@@ -36,6 +36,7 @@ type MultiMonthViewProps = {
   onSaveAdjustments: (month: string) => Promise<void>;
   onRecalculate: (month: string) => Promise<void>;
   onRemoveMonth: (month: string) => void;
+  onViewDetail: (payload: { month: string; workerId: number; workerName: string }) => void;
 };
 
 function formatMoney(value: number) {
@@ -165,6 +166,7 @@ export default function MultiMonthView({
   onSaveAdjustments,
   onRecalculate,
   onRemoveMonth,
+  onViewDetail,
 }: MultiMonthViewProps) {
   const hasAnyData = monthOrder.some((month) => Boolean(dataByMonth[month]));
 
@@ -240,6 +242,7 @@ export default function MultiMonthView({
                     <th className="px-4 py-3 font-medium">Thưởng</th>
                     <th className="px-4 py-3 font-medium">Phạt</th>
                     <th className="px-4 py-3 font-medium">Tổng lương</th>
+                    <th className="px-4 py-3 text-right font-medium">Chi tiết</th>
                   </tr>
                 </thead>
 
@@ -247,14 +250,14 @@ export default function MultiMonthView({
                   {isLoading ? (
                     Array.from({ length: 6 }).map((_, index) => (
                       <tr key={index} className="border-b border-slate-100">
-                        <td colSpan={6} className="px-4 py-3">
+                        <td colSpan={7} className="px-4 py-3">
                           <div className="h-8 animate-pulse rounded bg-slate-100" />
                         </td>
                       </tr>
                     ))
                   ) : !monthData || monthData.rows.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                      <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                         Không có dữ liệu lương trong tháng này.
                       </td>
                     </tr>
@@ -288,6 +291,16 @@ export default function MultiMonthView({
                             />
                           </td>
                           <td className="px-4 py-3 font-semibold text-[#1B5E20]">{formatMoney(totalSalary)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => onViewDetail({ month, workerId: row.workerId, workerName: row.hoTen })}
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Xem chi tiết
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
@@ -304,6 +317,7 @@ export default function MultiMonthView({
                       <td className="px-4 py-3 text-emerald-700">{formatMoney(monthData.totals.bonus)}</td>
                       <td className="px-4 py-3 text-red-600">{formatMoney(monthData.totals.penalty)}</td>
                       <td className="px-4 py-3 text-[#1B5E20]">{formatMoney(monthData.totals.totalSalary)}</td>
+                      <td className="px-4 py-3" />
                     </tr>
                   </tfoot>
                 )}

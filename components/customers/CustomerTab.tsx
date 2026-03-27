@@ -53,11 +53,11 @@ function cellToString(value: unknown) {
 
 function validatePreviewRow(row: ImportPreviewRow) {
   if (!row.tenKhachHang.trim() || row.tenKhachHang.trim().length < 2) {
-    return 'Ten khach hang bat buoc va toi thieu 2 ky tu';
+    return 'Tên khách hàng bắt buộc và tối thiểu 2 ký tự';
   }
 
   if (row.soDienThoai.trim() && !/^[0-9+\-() ]{8,20}$/.test(row.soDienThoai.trim())) {
-    return 'So dien thoai khong hop le';
+    return 'Số điện thoại không hợp lệ';
   }
 
   return undefined;
@@ -160,14 +160,14 @@ export default function CustomerTab() {
       }
 
       setModalOpen(false);
-      setSuccess(editingCustomer ? 'Cap nhat khach hang thanh cong.' : 'Them khach hang thanh cong.');
+      setSuccess(editingCustomer ? 'Cập nhật khách hàng thành công.' : 'Thêm khách hàng thành công.');
       await refreshCustomers();
     });
   };
 
   const handleDelete = (item: CustomerItem) => {
     const confirmed = window.confirm(
-      `Ban co chac chan muon xoa khach hang ${item.tenKhachHang}? Hanh dong nay khong the hoan tac.`,
+      `Bạn có chắc chắn muốn xóa khách hàng ${item.tenKhachHang}? Hành động này không thể hoàn tác.`,
     );
 
     if (!confirmed) return;
@@ -182,7 +182,7 @@ export default function CustomerTab() {
         return;
       }
 
-      setSuccess('Xoa khach hang thanh cong.');
+      setSuccess('Xóa khách hàng thành công.');
       const nextPage = rows.length === 1 && page > 1 ? page - 1 : page;
       setPage(nextPage);
       await refreshCustomers();
@@ -209,10 +209,10 @@ export default function CustomerTab() {
 
       worksheet.columns = [
         { header: 'Ma KH', key: 'maKhachHang', width: 16 },
-        { header: 'Ten khach hang', key: 'tenKhachHang', width: 30 },
-        { header: 'So dien thoai', key: 'soDienThoai', width: 18 },
-        { header: 'Dia chi', key: 'diaChi', width: 40 },
-        { header: 'Ngay tao', key: 'createdAt', width: 16 },
+        { header: 'Tên khách hàng', key: 'tenKhachHang', width: 30 },
+        { header: 'Số điện thoại', key: 'soDienThoai', width: 18 },
+        { header: 'Địa chỉ', key: 'diaChi', width: 40 },
+        { header: 'Ngày tạo', key: 'createdAt', width: 16 },
       ];
 
       result.data.items.forEach((row) => {
@@ -250,7 +250,7 @@ export default function CustomerTab() {
 
         const sheet = workbook.worksheets[0];
         if (!sheet) {
-          setError('Khong tim thay worksheet trong file.');
+          setError('Không tìm thấy worksheet trong file.');
           setImportRows([]);
           return;
         }
@@ -283,7 +283,7 @@ export default function CustomerTab() {
 
         setImportRows(parsedRows);
       } catch {
-        setError('Khong the doc file Excel. Vui long kiem tra dinh dang file.');
+        setError('Không thể đọc file Excel. Vui lòng kiểm tra định dạng file.');
         setImportRows([]);
       }
     });
@@ -291,7 +291,7 @@ export default function CustomerTab() {
 
   const handleConfirmImport = () => {
     if (validImportRows.length === 0) {
-      setError('Khong co dong hop le de import.');
+      setError('Không có dòng hợp lệ để import.');
       return;
     }
 
@@ -315,9 +315,9 @@ export default function CustomerTab() {
       }
 
       const { inserted, updated, skipped, errors } = result.data;
-      setSuccess(`Import xong: them moi ${inserted}, cap nhat ${updated}, bo qua ${skipped}.`);
+      setSuccess(`Import xong: thêm mới ${inserted}, cập nhật ${updated}, bỏ qua ${skipped}.`);
       if (errors.length > 0) {
-        setError(`Co ${errors.length} dong loi. Dong dau tien: ${errors[0].row} - ${errors[0].message}`);
+        setError(`Có ${errors.length} dòng lỗi. Dòng đầu tiên: ${errors[0].row} - ${errors[0].message}`);
       }
 
       setImportRows([]);
@@ -329,8 +329,8 @@ export default function CustomerTab() {
     <div className="space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Danh sach khach hang</h2>
-          <p className="mt-1 text-sm text-slate-600">{total} khach hang</p>
+          <h2 className="text-xl font-semibold text-slate-900">Danh sách khách hàng</h2>
+          <p className="mt-1 text-sm text-slate-600">{total} khách hàng</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -347,7 +347,7 @@ export default function CustomerTab() {
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
           >
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Xuat Excel
+            Xuất Excel
           </button>
 
           <button
@@ -356,7 +356,7 @@ export default function CustomerTab() {
             className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-3 py-2 text-sm font-medium text-white hover:bg-[#1B5E20]"
           >
             <Plus className="h-4 w-4" />
-            Them khach hang
+            Thêm khách hàng
           </button>
         </div>
       </header>
@@ -368,7 +368,7 @@ export default function CustomerTab() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Tim theo ma, ten hoac so dien thoai..."
+              placeholder="Tìm theo mã, tên hoặc số điện thoại..."
               className="h-10 w-full rounded-lg border border-slate-200 pl-10 pr-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
             />
           </div>
@@ -381,7 +381,7 @@ export default function CustomerTab() {
             }}
             className="h-10 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white hover:bg-slate-800"
           >
-            Tim kiem
+            Tìm kiếm
           </button>
         </div>
       </section>
@@ -401,17 +401,17 @@ export default function CustomerTab() {
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-500">
                 <th className="px-4 py-3 font-medium">STT</th>
                 <th className="px-4 py-3 font-medium">Ma KH</th>
-                <th className="px-4 py-3 font-medium">Ten khach hang</th>
-                <th className="px-4 py-3 font-medium">SDT</th>
-                <th className="px-4 py-3 font-medium">Dia chi</th>
-                <th className="px-4 py-3 text-right font-medium">Hanh dong</th>
+                <th className="px-4 py-3 font-medium">Tên khách hàng</th>
+                <th className="px-4 py-3 font-medium">SĐT</th>
+                <th className="px-4 py-3 font-medium">Địa chỉ</th>
+                <th className="px-4 py-3 text-right font-medium">Hành động</th>
               </tr>
             </thead>
             <tbody>
               {!loading && rows.length === 0 ? (
                 <tr>
                   <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={6}>
-                    Chua co du lieu khach hang.
+                    Chưa có dữ liệu khách hàng.
                   </td>
                 </tr>
               ) : (
@@ -430,7 +430,7 @@ export default function CustomerTab() {
                           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                          Sua
+                          Sửa
                         </button>
                         <button
                           type="button"
@@ -438,7 +438,7 @@ export default function CustomerTab() {
                           className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          Xoa
+                          Xóa
                         </button>
                       </div>
                     </td>
@@ -451,7 +451,7 @@ export default function CustomerTab() {
 
         <div className="flex flex-col gap-2 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            Hien thi {(rows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1)}-
+            Hiển thị {(rows.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1)}-
             {(page - 1) * PAGE_SIZE + rows.length} / {total}
           </p>
 
@@ -462,7 +462,7 @@ export default function CustomerTab() {
               onClick={() => setPage((prev) => Math.max(1, prev - 1))}
               className="rounded-lg border border-slate-200 px-3 py-1.5 hover:bg-slate-50 disabled:opacity-40"
             >
-              Truoc
+              Trước
             </button>
             <span>
               Trang {page}/{totalPages}
@@ -483,14 +483,14 @@ export default function CustomerTab() {
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-slate-900">Preview import</h3>
           <div className="flex items-center gap-4 text-sm text-slate-700">
-            <span>Hop le: {validImportRows.length}</span>
+        <span>Hợp lệ: {validImportRows.length}</span>
             <label className="inline-flex items-center gap-2">
               <input
                 type="radio"
                 checked={importMode === 'update'}
                 onChange={() => setImportMode('update')}
               />
-              Cap nhat
+              Cập nhật
             </label>
             <label className="inline-flex items-center gap-2">
               <input
@@ -498,7 +498,7 @@ export default function CustomerTab() {
                 checked={importMode === 'skip'}
                 onChange={() => setImportMode('skip')}
               />
-              Bo qua
+              Bỏ qua
             </label>
           </div>
         </div>
@@ -507,19 +507,19 @@ export default function CustomerTab() {
           <table className="min-w-full text-left text-xs">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                <th className="px-3 py-2 font-medium">Dong</th>
+                <th className="px-3 py-2 font-medium">Dòng</th>
                 <th className="px-3 py-2 font-medium">Ma KH</th>
-                <th className="px-3 py-2 font-medium">Ten</th>
+                <th className="px-3 py-2 font-medium">Tên</th>
                 <th className="px-3 py-2 font-medium">SDT</th>
-                <th className="px-3 py-2 font-medium">Dia chi</th>
-                <th className="px-3 py-2 font-medium">Kiem tra</th>
+                <th className="px-3 py-2 font-medium">Địa chỉ</th>
+                <th className="px-3 py-2 font-medium">Kiểm tra</th>
               </tr>
             </thead>
             <tbody>
               {importRows.length === 0 ? (
                 <tr>
                   <td className="px-3 py-4 text-slate-500" colSpan={6}>
-                    Chua co du lieu import.
+                    Chưa có dữ liệu import.
                   </td>
                 </tr>
               ) : (
@@ -531,7 +531,7 @@ export default function CustomerTab() {
                     <td className="px-3 py-2">{row.soDienThoai || '-'}</td>
                     <td className="px-3 py-2">{row.diaChi || '-'}</td>
                     <td className={`px-3 py-2 ${row.error ? 'text-red-600' : 'text-emerald-700'}`}>
-                      {row.error ?? 'Hop le'}
+                      {row.error ?? 'Hợp lệ'}
                     </td>
                   </tr>
                 ))
@@ -548,7 +548,7 @@ export default function CustomerTab() {
             className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2 text-sm font-medium text-white hover:bg-[#1B5E20] disabled:opacity-60"
           >
             {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Xac nhan import
+            Xác nhận import
           </button>
         </div>
       </section>
@@ -558,7 +558,7 @@ export default function CustomerTab() {
           <div className="mx-auto mt-12 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-slate-900">
-                {editingCustomer ? 'Cap nhat khach hang' : 'Them khach hang'}
+                {editingCustomer ? 'Cập nhật khách hàng' : 'Thêm khách hàng'}
               </h3>
               <button
                 type="button"
@@ -575,13 +575,13 @@ export default function CustomerTab() {
                 <input
                   value={formValues.maKhachHang}
                   onChange={(event) => setFormValues((prev) => ({ ...prev, maKhachHang: event.target.value }))}
-                  placeholder="De trong de tu dong sinh"
+                  placeholder="Để trống để tự động sinh"
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Ten khach hang *</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Tên khách hàng *</label>
                 <input
                   value={formValues.tenKhachHang}
                   onChange={(event) => setFormValues((prev) => ({ ...prev, tenKhachHang: event.target.value }))}
@@ -599,7 +599,7 @@ export default function CustomerTab() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Dia chi</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Địa chỉ</label>
                 <textarea
                   value={formValues.diaChi}
                   onChange={(event) => setFormValues((prev) => ({ ...prev, diaChi: event.target.value }))}
@@ -615,7 +615,7 @@ export default function CustomerTab() {
                 onClick={() => setModalOpen(false)}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
-                Huy
+                Hủy
               </button>
               <button
                 type="button"
@@ -624,7 +624,7 @@ export default function CustomerTab() {
                 className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2 text-sm font-medium text-white hover:bg-[#1B5E20] disabled:opacity-60"
               >
                 {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Luu
+                Lưu
               </button>
             </div>
           </div>

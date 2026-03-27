@@ -38,20 +38,20 @@ function TicketTableComponent({ rows, loading, onPayment, onHistory }: TicketTab
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="min-w-[1300px] text-sm">
+        <table className="min-w-[1300px] table-fixed text-sm">
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
-              <th className="px-4 py-3 font-medium">Ngay</th>
-              <th className="px-4 py-3 font-medium">Xe số</th>
-              <th className="px-4 py-3 font-medium">Khách hàng</th>
-              <th className="px-4 py-3 font-medium">Loại ván</th>
-              <th className="px-4 py-3 font-medium">Trọng lượng (kg)</th>
-              <th className="px-4 py-3 font-medium">Đơn giá</th>
-              <th className="px-4 py-3 font-medium">Thành tiền</th>
-              <th className="px-4 py-3 font-medium">Đã trả</th>
-              <th className="px-4 py-3 font-medium">Còn nợ</th>
-              <th className="px-4 py-3 font-medium">{vi.common.status}</th>
-              <th className="px-4 py-3 text-right font-medium">{vi.common.actions}</th>
+              <th className="w-[9%] px-4 py-3 font-medium">Ngày</th>
+              <th className="w-[8%] px-4 py-3 font-medium">Xe số</th>
+              <th className="w-[15%] px-4 py-3 font-medium">Khách hàng</th>
+              <th className="w-[12%] px-4 py-3 font-medium">Loại ván</th>
+              <th className="w-[11%] px-4 py-3 text-right font-medium">Trọng lượng (kg)</th>
+              <th className="w-[9%] px-4 py-3 text-right font-medium">Đơn giá</th>
+              <th className="w-[10%] px-4 py-3 text-right font-medium">Thành tiền</th>
+              <th className="w-[8%] px-4 py-3 text-right font-medium">Đã trả</th>
+              <th className="w-[8%] px-4 py-3 text-right font-medium">Còn nợ</th>
+              <th className="w-[6%] px-4 py-3 text-center font-medium">{vi.common.status}</th>
+              <th className="w-[14%] px-4 py-3 text-right font-medium">{vi.common.actions}</th>
             </tr>
           </thead>
           <tbody>
@@ -76,12 +76,12 @@ function TicketTableComponent({ rows, loading, onPayment, onHistory }: TicketTab
                   <td className="px-4 py-3 font-medium text-slate-800">{row.xeSo}</td>
                   <td className="px-4 py-3 text-slate-700">{row.khachHang}</td>
                   <td className="px-4 py-3 text-slate-700">{row.loaiVan}</td>
-                  <td className="px-4 py-3 text-slate-700">{row.trongLuongKg.toLocaleString('vi-VN')}</td>
-                  <td className="px-4 py-3 text-slate-700">{formatMoney(row.donGia)}</td>
-                  <td className="px-4 py-3 text-slate-700">{formatMoney(row.thanhTien)}</td>
-                  <td className="px-4 py-3 text-slate-700">{formatMoney(row.daTra)}</td>
-                  <td className="px-4 py-3 font-semibold text-red-600">{formatMoney(row.conNo)}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-right text-slate-700">{row.trongLuongKg.toLocaleString('vi-VN')}</td>
+                  <td className="px-4 py-3 text-right text-slate-700">{formatMoney(row.donGia)}</td>
+                  <td className="px-4 py-3 text-right text-slate-700">{formatMoney(row.thanhTien)}</td>
+                  <td className="px-4 py-3 text-right text-slate-700">{formatMoney(row.daTra)}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-red-600">{formatMoney(row.conNo)}</td>
+                  <td className="px-4 py-3 text-center">
                     <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${statusClass(row.paymentStatus)}`}>
                       {statusLabel(row.paymentStatus)}
                     </span>

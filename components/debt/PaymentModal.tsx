@@ -64,10 +64,10 @@ export default function PaymentModal({ open, onOpenChange, ticket, onSuccess }: 
     try {
       const value = Number(amount || 0);
       if (!Number.isFinite(value) || value <= 0) {
-        throw new Error('Vui long nhap so tien thanh toan hop le');
+        throw new Error('Vui lòng nhập số tiền thanh toán hợp lệ');
       }
       if (ticket && value > ticket.con_lai) {
-        throw new Error('So tien thanh toan khong duoc vuot qua so con lai');
+        throw new Error('Số tiền thanh toán không được vượt quá số còn lại');
       }
 
       const response = await fetch('/api/debt/payment', {
@@ -83,13 +83,13 @@ export default function PaymentModal({ open, onOpenChange, ticket, onSuccess }: 
 
       const json = (await response.json()) as { success: boolean; error?: string };
       if (!response.ok || !json.success) {
-        throw new Error(json.error || 'Khong the cap nhat thanh toan');
+        throw new Error(json.error || 'Không thể cập nhật thanh toán');
       }
 
-      await onSuccess('Thanh toan thanh cong, cong no da duoc cap nhat.');
+      await onSuccess('Thanh toán thành công, công nợ đã được cập nhật.');
       onOpenChange(false);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Khong the cap nhat thanh toan');
+      setError(submitError instanceof Error ? submitError.message : 'Không thể cập nhật thanh toán');
     } finally {
       setSubmitting(false);
     }
@@ -101,7 +101,7 @@ export default function PaymentModal({ open, onOpenChange, ticket, onSuccess }: 
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
           <div className="mb-4 flex items-center justify-between">
-            <Dialog.Title className="text-lg font-semibold text-slate-900">Thanh toan cong no</Dialog.Title>
+            <Dialog.Title className="text-lg font-semibold text-slate-900">Thanh toán công nợ</Dialog.Title>
             <Dialog.Close asChild>
               <button type="button" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
                 <X className="h-4 w-4" />
@@ -111,13 +111,13 @@ export default function PaymentModal({ open, onOpenChange, ticket, onSuccess }: 
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-              <p className="text-slate-700">Bien so xe: <span className="font-medium">{ticket?.bien_so_xe ?? '-'}</span></p>
-              <p className="text-slate-700">Ngay can: <span className="font-medium">{ticket?.ngay_can ?? '-'}</span></p>
-              <p className="text-slate-700">Con no hien tai: <span className="font-semibold text-red-600">{formatMoney(ticket?.con_lai ?? 0)}</span></p>
+              <p className="text-slate-700">Biển số xe: <span className="font-medium">{ticket?.bien_so_xe ?? '-'}</span></p>
+              <p className="text-slate-700">Ngày cân: <span className="font-medium">{ticket?.ngay_can ?? '-'}</span></p>
+              <p className="text-slate-700">Còn nợ hiện tại: <span className="font-semibold text-red-600">{formatMoney(ticket?.con_lai ?? 0)}</span></p>
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="amount">So tien thanh toan</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="amount">Số tiền thanh toán</label>
               <input
                 id="amount"
                 type="number"
@@ -131,7 +131,7 @@ export default function PaymentModal({ open, onOpenChange, ticket, onSuccess }: 
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="paid-date">Ngay thanh toan</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="paid-date">Ngày thanh toán</label>
               <input
                 id="paid-date"
                 type="date"
@@ -143,14 +143,14 @@ export default function PaymentModal({ open, onOpenChange, ticket, onSuccess }: 
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="collector">Nguoi thu</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="collector">Người thu</label>
               <input
                 id="collector"
                 type="text"
                 value={collector}
                 onChange={(event) => setCollector(event.target.value)}
                 className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-                placeholder="Nhap nguoi thu (tuy chon)"
+                placeholder="Nhập người thu (tùy chọn)"
               />
             </div>
 
@@ -162,14 +162,14 @@ export default function PaymentModal({ open, onOpenChange, ticket, onSuccess }: 
                 onClick={() => onOpenChange(false)}
                 className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
-                Huy
+                Hủy
               </button>
               <button
                 type="submit"
                 disabled={submitting}
                 className="rounded-lg bg-[#0B7285] px-4 py-2 text-sm font-medium text-white hover:bg-[#095C6D] disabled:opacity-60"
               >
-                {submitting ? 'Dang luu...' : 'Xac nhan thanh toan'}
+                {submitting ? 'Đang lưu...' : 'Xác nhận thanh toán'}
               </button>
             </div>
           </form>

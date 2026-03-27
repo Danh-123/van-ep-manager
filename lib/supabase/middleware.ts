@@ -99,7 +99,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && resolvedRole === 'Viewer') {
-    const viewerAllowedPrefixes = ['/my-salary', '/my-attendance'];
+    const viewerAllowedPrefixes = ['/my-salary', '/my-attendance', '/my-debt'];
     const isAllowed = viewerAllowedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 
     if (!isAllowed) {

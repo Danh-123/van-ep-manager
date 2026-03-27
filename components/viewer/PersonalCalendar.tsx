@@ -32,10 +32,10 @@ function statusBadgeClass(status: PersonalAttendanceDay['status']) {
 }
 
 function statusLabel(status: PersonalAttendanceDay['status']) {
-  if (status === 'CoMat') return 'Co mat';
-  if (status === 'Nghi') return 'Nghi';
-  if (status === 'NghiPhep') return 'Nghi phep';
-  return 'Lam them';
+  if (status === 'CoMat') return 'Có mặt';
+  if (status === 'Nghi') return 'Nghỉ';
+  if (status === 'NghiPhep') return 'Nghỉ phép';
+  return 'Làm thêm';
 }
 
 function formatMoney(value: number) {
@@ -74,8 +74,8 @@ export default function PersonalCalendar({ monthKey, rows }: PersonalCalendarPro
   return (
     <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div>
-        <h2 className="text-base font-semibold text-slate-900">Lich cham cong thang {monthLabel}</h2>
-        <p className="text-sm text-slate-600">Click vao ngay de xem chi tiet check-in/check-out.</p>
+        <h2 className="text-base font-semibold text-slate-900">Lịch chấm công tháng {monthLabel}</h2>
+        <p className="text-sm text-slate-600">Click vào ngày để xem chi tiết check-in/check-out.</p>
       </div>
 
       <div className="grid grid-cols-7 gap-2 text-center text-xs font-medium text-slate-500">
@@ -114,7 +114,7 @@ export default function PersonalCalendar({ monthKey, rows }: PersonalCalendarPro
                 </span>
               ) : (
                 <span className="mt-2 inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] text-slate-500">
-                  Khong co
+                  Không có
                 </span>
               )}
             </button>
@@ -123,16 +123,16 @@ export default function PersonalCalendar({ monthKey, rows }: PersonalCalendarPro
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-        <p className="font-medium text-slate-800">Chi tiet ngay: {selectedDate ?? '-'}</p>
+        <p className="font-medium text-slate-800">Chi tiết ngày: {selectedDate ?? '-'}</p>
         {!selectedDetail ? (
-          <p className="mt-1 text-slate-500">Khong co ban ghi cham cong cho ngay nay.</p>
+          <p className="mt-1 text-slate-500">Không có bản ghi chấm công cho ngày này.</p>
         ) : (
           <div className="mt-2 grid grid-cols-1 gap-1 text-slate-700 sm:grid-cols-2">
-            <p>Trang thai: {statusLabel(selectedDetail.status)}</p>
-            <p>Luong ngay: {formatMoney(selectedDetail.dailySalary)}</p>
+            <p>Trạng thái: {statusLabel(selectedDetail.status)}</p>
+            <p>Lương ngày: {formatMoney(selectedDetail.dailySalary)}</p>
             <p>Check-in: {selectedDetail.checkIn || '-'}</p>
             <p>Check-out: {selectedDetail.checkOut || '-'}</p>
-            <p className="sm:col-span-2">Ghi chu: {selectedDetail.note || '-'}</p>
+            <p className="sm:col-span-2">Ghi chú: {selectedDetail.note || '-'}</p>
           </div>
         )}
       </div>

@@ -9,8 +9,8 @@ export default function EmployeesPage() {
   return (
     <div className="space-y-5">
       <header>
-        <h1 className="text-2xl font-semibold text-slate-900">Danh sach</h1>
-        <p className="mt-1 text-sm text-slate-600">Quan ly cong nhan va khach hang</p>
+        <h1 className="text-2xl font-semibold text-slate-900">Danh sách</h1>
+        <p className="mt-1 text-sm text-slate-600">Quản lý công nhân và khách hàng</p>
       </header>
 
       <Tabs.Root defaultValue="employees" className="space-y-4">
@@ -19,13 +19,13 @@ export default function EmployeesPage() {
             value="employees"
             className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-[#2E7D32] data-[state=active]:text-white"
           >
-            Cong nhan
+            Công nhân
           </Tabs.Trigger>
           <Tabs.Trigger
             value="customers"
             className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-[#2E7D32] data-[state=active]:text-white"
           >
-            Khach hang
+            Khách hàng
           </Tabs.Trigger>
         </Tabs.List>
 

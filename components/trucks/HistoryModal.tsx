@@ -35,7 +35,7 @@ export default function HistoryModal({ open, ticket, loading, rows, error, onOpe
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[96vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
           <div className="mb-4 flex items-center justify-between">
             <Dialog.Title className="text-lg font-semibold text-slate-900">
-              Lich su thanh toan {ticket ? `- ${ticket.khachHang}` : ''}
+              Lịch sử thanh toán {ticket ? `- ${ticket.khachHang}` : ''}
             </Dialog.Title>
             <Dialog.Close asChild>
               <button type="button" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
@@ -50,10 +50,10 @@ export default function HistoryModal({ open, ticket, loading, rows, error, onOpe
             <table className="min-w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50 text-slate-600">
-                  <th className="px-3 py-2 font-medium">Ngay</th>
-                  <th className="px-3 py-2 font-medium">So tien</th>
-                  <th className="px-3 py-2 font-medium">Nguoi thu</th>
-                  <th className="px-3 py-2 font-medium">Ghi chu</th>
+                  <th className="px-3 py-2 font-medium">Ngày</th>
+                  <th className="px-3 py-2 font-medium">Số tiền</th>
+                  <th className="px-3 py-2 font-medium">Người thu</th>
+                  <th className="px-3 py-2 font-medium">Ghi chú</th>
                 </tr>
               </thead>
               <tbody>
@@ -62,14 +62,14 @@ export default function HistoryModal({ open, ticket, loading, rows, error, onOpe
                     <td className="px-3 py-6 text-slate-500" colSpan={4}>
                       <span className="inline-flex items-center gap-2">
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Dang tai lich su...
+                        Đang tải lịch sử...
                       </span>
                     </td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
                     <td className="px-3 py-6 text-slate-500" colSpan={4}>
-                      Chua co lich su thanh toan.
+                      Chưa có lịch sử thanh toán.
                     </td>
                   </tr>
                 ) : (

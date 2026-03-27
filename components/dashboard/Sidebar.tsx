@@ -4,11 +4,8 @@ import {
   BarChart3,
   CalendarCheck,
   ClipboardCheck,
-  FileUp,
-  HelpCircle,
   LayoutDashboard,
-  Layers3,
-  ScrollText,
+  LogOut,
   Truck,
   Users,
   UserCog,
@@ -16,11 +13,12 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState, useTransition } from 'react';
 
+import { signOut } from '@/app/login/actions';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useMounted } from '@/hooks/useMounted';
-import { vi } from '@/lib/translations/vi';
 
 import { useSidebar } from './SidebarContext';
 
@@ -34,55 +32,166 @@ type MenuItem = {
   icon: React.ComponentType<{ className?: string }>;
   resource:
     | 'dashboard'
-    | 'cham-cong'
-    | 'tinh-luong'
-    | 'xe-hang'
-    | 'loai-van-ep'
-    | 'cong-no'
-    | 'bao-cao'
-    | 'cong-nhan'
-    | 'nguoi-dung';
+    | 'attendance'
+    | 'salary'
+    | 'trucks'
+    | 'debt'
+    | 'reports'
+    | 'employees'
+    | 'users'
+    | 'my-salary'
+    | 'my-attendance'
+    | 'my-debt';
 };
 
 const MENU_ITEMS: MenuItem[] = [
-  { label: vi.nav.dashboard, href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
-  { label: vi.nav.attendance, href: '/attendance', icon: ClipboardCheck, resource: 'cham-cong' },
-  { label: vi.nav.salary, href: '/salary', icon: WalletCards, resource: 'tinh-luong' },
-  { label: vi.nav.trucks, href: '/trucks', icon: Truck, resource: 'xe-hang' },
-  { label: vi.nav.woodTypes, href: '/wood-types', icon: Layers3, resource: 'loai-van-ep' },
-  { label: vi.nav.debt, href: '/debt', icon: WalletCards, resource: 'cong-no' },
-  { label: vi.nav.reports, href: '/reports', icon: BarChart3, resource: 'bao-cao' },
-  { label: vi.nav.importExcel, href: '/import', icon: FileUp, resource: 'nguoi-dung' },
-  { label: vi.nav.auditLog, href: '/audit-log', icon: ScrollText, resource: 'nguoi-dung' },
-  { label: 'Danh sach', href: '/employees', icon: Users, resource: 'cong-nhan' },
-  { label: vi.nav.users, href: '/users', icon: UserCog, resource: 'nguoi-dung' },
-  { label: vi.nav.help, href: '/help', icon: HelpCircle, resource: 'dashboard' },
+  { label: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
+  { label: 'Chấm công', href: '/attendance', icon: ClipboardCheck, resource: 'attendance' },
+  { label: 'Tính lương', href: '/salary', icon: WalletCards, resource: 'salary' },
+  { label: 'Xe hàng', href: '/trucks', icon: Truck, resource: 'trucks' },
+  { label: 'Công nợ', href: '/debt', icon: WalletCards, resource: 'debt' },
+  { label: 'Báo cáo', href: '/reports', icon: BarChart3, resource: 'reports' },
+  { label: 'Danh sách', href: '/employees', icon: Users, resource: 'employees' },
+  { label: 'Người dùng', href: '/users', icon: UserCog, resource: 'users' },
 ];
 
 const VIEWER_MENU_ITEMS: Array<{
   label: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  resource: 'dashboard' | 'my-salary' | 'my-attendance' | 'my-debt';
 }> = [
-  { label: vi.nav.mySalary, href: '/my-salary', icon: WalletCards },
-  { label: vi.nav.myAttendance, href: '/my-attendance', icon: CalendarCheck },
-  { label: vi.nav.help, href: '/help', icon: HelpCircle },
+  { label: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
+  { label: 'Lương của tôi', href: '/my-salary', icon: WalletCards, resource: 'my-salary' },
+  { label: 'Chấm công của tôi', href: '/my-attendance', icon: CalendarCheck, resource: 'my-attendance' },
+  { label: 'Công nợ của tôi', href: '/my-debt', icon: WalletCards, resource: 'my-debt' },
 ];
+
+type SidebarUserState = {
+  user: {
+    role: 'Admin' | 'KeToan' | 'Viewer';
+  };
+  hasWorkerLink: boolean;
+  hasCustomerLink: boolean;
+  checkingLinks: boolean;
+};
+
+function normalizeRole(role: string | null | undefined): 'Admin' | 'KeToan' | 'Viewer' {
+  if (role === 'Admin' || role === 'KeToan' || role === 'Viewer') {
+    return role;
+  }
+
+  return 'Viewer';
+}
+
+function getCurrentMonth() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+function useUser(initialRole: string | null) {
+  const role = normalizeRole(initialRole);
+  const [userState, setUserState] = useState<SidebarUserState>({
+    user: { role },
+    hasWorkerLink: false,
+    hasCustomerLink: false,
+    checkingLinks: role === 'Viewer',
+  });
+
+  useEffect(() => {
+    setUserState({
+      user: { role },
+      hasWorkerLink: false,
+      hasCustomerLink: false,
+      checkingLinks: role === 'Viewer',
+    });
+
+    if (role !== 'Viewer') {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadLinkedState = async () => {
+      try {
+        const month = getCurrentMonth();
+        const [salaryRes, debtRes] = await Promise.all([
+          fetch(`/api/my-salary?month=${month}`, { method: 'GET', cache: 'no-store' }),
+          fetch('/api/my-debt', { method: 'GET', cache: 'no-store' }),
+        ]);
+
+        const salaryPayload = (await salaryRes.json().catch(() => ({}))) as { linked?: boolean };
+        const debtPayload = (await debtRes.json().catch(() => ({}))) as { linked?: boolean };
+
+        if (cancelled) return;
+
+        setUserState({
+          user: { role },
+          hasWorkerLink: salaryPayload.linked === true,
+          hasCustomerLink: debtPayload.linked === true,
+          checkingLinks: false,
+        });
+      } catch {
+        if (cancelled) return;
+        setUserState({
+          user: { role },
+          hasWorkerLink: false,
+          hasCustomerLink: false,
+          checkingLinks: false,
+        });
+      }
+    };
+
+    void loadLinkedState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role]);
+
+  return userState;
+}
 
 export default function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const mounted = useMounted();
+  const user = useUser(role);
+  const [isSigningOut, startSignOut] = useTransition();
   const { isSidebarOpen, closeSidebar } = useSidebar();
-  const { canView } = usePermissions(role);
+  const { canView, isViewer } = usePermissions(user.user.role);
 
   if (!mounted) {
     return <aside aria-hidden className="hidden w-72 shrink-0 bg-[#1B5E20] md:block" />;
   }
 
-  const visibleItems =
-    role === 'Viewer'
-      ? VIEWER_MENU_ITEMS
-      : MENU_ITEMS.filter((item) => canView(item.resource));
+  const visibleItems = !isViewer
+    ? MENU_ITEMS.filter((item) => canView(item.resource))
+    : VIEWER_MENU_ITEMS.filter((item) => {
+        if (item.resource === 'my-salary' || item.resource === 'my-attendance') {
+          return user.hasWorkerLink;
+        }
+
+        if (item.resource === 'my-debt') {
+          return user.hasCustomerLink;
+        }
+
+        return true;
+      }).filter((item) => canView(item.resource));
+
+  const handleSignOut = () => {
+    startSignOut(async () => {
+      const result = await signOut();
+      if (!result.success) {
+        return;
+      }
+
+      router.replace('/login');
+      router.refresh();
+    });
+  };
 
   return (
     <>
@@ -95,16 +204,16 @@ export default function Sidebar({ role }: SidebarProps) {
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-72 bg-[#1B5E20] text-white transition-transform duration-300 md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-72 bg-[#1B5E20] text-white transition-transform duration-300 md:top-0 md:h-screen md:translate-x-0 ${
           isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:static md:z-auto`}
+        }`}
       >
         <div className="flex h-16 items-center justify-between border-b border-emerald-700/60 px-5">
           <Link href="/dashboard" className="flex items-center gap-3 font-semibold tracking-wide">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-300/20 text-sm font-bold text-emerald-100">
-              VE
+              TT
             </span>
-            <span>VanEpManager</span>
+            <span>Toàn Tâm Phát</span>
           </Link>
 
           <button
@@ -117,7 +226,13 @@ export default function Sidebar({ role }: SidebarProps) {
           </button>
         </div>
 
-        <nav className="px-3 py-4">
+        <div className="flex h-[calc(100%-4rem)] flex-col">
+          <nav className="px-3 py-4">
+            {isViewer && !user.checkingLinks && !user.hasWorkerLink && (
+              <div className="mb-3 rounded-lg border border-amber-300 bg-amber-100/95 px-3 py-2 text-xs font-medium text-amber-900">
+                Chưa liên kết tài khoản. Vui lòng liên hệ Admin.
+              </div>
+            )}
           <ul className="space-y-1.5">
             {visibleItems.map((item) => {
               const isActive =
@@ -142,7 +257,20 @@ export default function Sidebar({ role }: SidebarProps) {
               );
             })}
           </ul>
-        </nav>
+          </nav>
+
+          <div className="mt-auto border-t border-emerald-700/60 p-3">
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-emerald-50 hover:bg-emerald-800/70 hover:text-white disabled:opacity-60"
+            >
+              <LogOut className="h-4 w-4 text-emerald-200" />
+              Đăng xuất
+            </button>
+          </div>
+        </div>
       </aside>
     </>
   );

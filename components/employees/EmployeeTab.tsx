@@ -1,5 +1,6 @@
 'use client';
 
+import * as Dialog from '@radix-ui/react-dialog';
 import { zodResolver } from '@hookform/resolvers/zod';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -16,6 +17,7 @@ import {
 } from '@/app/(dashboard)/employees/actions';
 
 import EmployeeForm from '@/components/employees/EmployeeForm';
+import LinkUserModal from '@/components/employees/LinkUserModal';
 import EmployeeTable from '@/components/employees/EmployeeTable';
 import ImportModal from '@/components/employees/ImportModal';
 
@@ -43,6 +45,8 @@ export default function EmployeeTab() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [unlinkOpen, setUnlinkOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeItem | null>(null);
 
   const [isPending, startTransition] = useTransition();
@@ -96,7 +100,7 @@ export default function EmployeeTab() {
 
   const handleDelete = (item: EmployeeItem) => {
     const confirmed = window.confirm(
-      `Ban co chac chan muon xoa cong nhan ${item.hoTen}? Hanh dong nay khong the hoan tac.`,
+      `Bạn có chắc chắn muốn xóa công nhân ${item.hoTen}? Hành động này không thể hoàn tác.`,
     );
 
     if (!confirmed) return;
@@ -132,11 +136,12 @@ export default function EmployeeTab() {
       const worksheet = workbook.addWorksheet('CongNhan');
 
       worksheet.columns = [
-        { header: 'Ma cong nhan', key: 'maCongNhan', width: 18 },
-        { header: 'Ho ten', key: 'hoTen', width: 30 },
-        { header: 'So dien thoai', key: 'soDienThoai', width: 18 },
-        { header: 'Trang thai', key: 'trangThai', width: 14 },
-        { header: 'Ngay tao', key: 'createdAt', width: 16 },
+        { header: 'Mã công nhân', key: 'maCongNhan', width: 18 },
+        { header: 'Họ tên', key: 'hoTen', width: 30 },
+        { header: 'Số điện thoại', key: 'soDienThoai', width: 18 },
+        { header: 'Tài khoản liên kết', key: 'linkedEmail', width: 30 },
+        { header: 'Trạng thái', key: 'trangThai', width: 14 },
+        { header: 'Ngày tạo', key: 'createdAt', width: 16 },
       ];
 
       result.data.items.forEach((row) => {
@@ -144,6 +149,7 @@ export default function EmployeeTab() {
           maCongNhan: row.maCongNhan,
           hoTen: row.hoTen,
           soDienThoai: row.soDienThoai ?? '',
+          linkedEmail: row.linkedUserEmail ?? '',
           trangThai: row.trangThai,
           createdAt: formatDate(row.createdAt),
         });
@@ -159,13 +165,13 @@ export default function EmployeeTab() {
     });
   };
 
-  const totalDisplay = useMemo(() => `${total} cong nhan`, [total]);
+  const totalDisplay = useMemo(() => `${total} công nhân`, [total]);
 
   return (
     <div className="space-y-5">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Danh sach cong nhan</h2>
+          <h2 className="text-xl font-semibold text-slate-900">Danh sách công nhân</h2>
           <p className="mt-1 text-sm text-slate-600">{totalDisplay}</p>
         </div>
 
@@ -186,7 +192,7 @@ export default function EmployeeTab() {
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
           >
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            Xuat Excel
+            Xuất Excel
           </button>
 
           <button
@@ -195,7 +201,7 @@ export default function EmployeeTab() {
             className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-3 py-2 text-sm font-medium text-white hover:bg-[#1B5E20]"
           >
             <Plus className="h-4 w-4" />
-            Them cong nhan
+            Thêm công nhân
           </button>
         </div>
       </header>
@@ -221,9 +227,9 @@ export default function EmployeeTab() {
             className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
             {...register('status')}
           >
-            <option value="TatCa">Tat ca trang thai</option>
-            <option value="DangLam">Dang lam</option>
-            <option value="NghiViec">Nghi viec</option>
+            <option value="TatCa">Tất cả trạng thái</option>
+            <option value="DangLam">Đang làm</option>
+            <option value="NghiViec">Nghỉ việc</option>
           </select>
 
           <button
@@ -236,7 +242,7 @@ export default function EmployeeTab() {
             }}
             className="h-10 rounded-lg border border-slate-200 px-4 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60"
           >
-            Xoa loc
+            Xóa lọc
           </button>
         </form>
       </section>
@@ -256,6 +262,14 @@ export default function EmployeeTab() {
         pageSize={PAGE_SIZE}
         loading={loading || isPending}
         onPageChange={handlePageChange}
+        onLink={(item) => {
+          setSelectedEmployee(item);
+          setLinkOpen(true);
+        }}
+        onUnlink={(item) => {
+          setSelectedEmployee(item);
+          setUnlinkOpen(true);
+        }}
         onEdit={(item) => {
           setSelectedEmployee(item);
           setEditOpen(true);
@@ -289,6 +303,98 @@ export default function EmployeeTab() {
           void queryClient.invalidateQueries({ queryKey: ['employees'] });
         }}
       />
+
+      <LinkUserModal
+        open={linkOpen}
+        employee={selectedEmployee ? { id: selectedEmployee.id, hoTen: selectedEmployee.hoTen } : null}
+        onOpenChange={(open) => {
+          setLinkOpen(open);
+          if (!open) setSelectedEmployee(null);
+        }}
+        submitting={isPending}
+        onConfirm={async (userId) => {
+          if (!selectedEmployee) return;
+
+          startTransition(async () => {
+            setError(null);
+
+            const response = await fetch(`/api/employees/${selectedEmployee.id}/link`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ user_id: userId }),
+            });
+
+            const payload = (await response.json()) as { success?: boolean; error?: string };
+
+            if (!response.ok || payload.success === false) {
+              setError(payload.error ?? 'Không thể liên kết tài khoản');
+              return;
+            }
+
+            setLinkOpen(false);
+            setSelectedEmployee(null);
+            await queryClient.invalidateQueries({ queryKey: ['employees'] });
+          });
+        }}
+      />
+
+      <Dialog.Root
+        open={unlinkOpen}
+        onOpenChange={(open) => {
+          setUnlinkOpen(open);
+          if (!open) setSelectedEmployee(null);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/45" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <Dialog.Title className="text-lg font-semibold text-slate-900">Hủy liên kết tài khoản</Dialog.Title>
+            <p className="mt-2 text-sm text-slate-700">
+              {`Bạn có chắc muốn hủy liên kết tài khoản ${selectedEmployee?.linkedUserEmail ?? ''} khỏi công nhân ${selectedEmployee?.hoTen ?? ''}?`}
+            </p>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setUnlinkOpen(false)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  if (!selectedEmployee) return;
+
+                  startTransition(async () => {
+                    setError(null);
+
+                    const response = await fetch(`/api/employees/${selectedEmployee.id}/link`, {
+                      method: 'DELETE',
+                    });
+
+                    const payload = (await response.json()) as { success?: boolean; error?: string };
+
+                    if (!response.ok || payload.success === false) {
+                      setError(payload.error ?? 'Không thể hủy liên kết tài khoản');
+                      return;
+                    }
+
+                    setUnlinkOpen(false);
+                    setSelectedEmployee(null);
+                    await queryClient.invalidateQueries({ queryKey: ['employees'] });
+                  });
+                }}
+                className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+              >
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Xác nhận
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

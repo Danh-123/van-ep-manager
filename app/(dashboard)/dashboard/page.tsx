@@ -121,27 +121,27 @@ async function StatsCardsSection() {
   return (
     <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatCard
-        title="Doanh thu hom nay"
+        title="Doanh thu hôm nay"
         value={formatCurrency(stats.revenueToday)}
-        subtitle={`Tu phieu can ngay ${stats.today}`}
+        subtitle={`Từ phiếu cân ngày ${stats.today}`}
         icon={TrendingUp}
       />
       <StatCard
-        title="Luong phai tra hom nay"
+        title="Lương phải trả hôm nay"
         value={formatCurrency(stats.salaryToday)}
-        subtitle={`Tong luong ngay ${stats.today}`}
+        subtitle={`Tổng lương ngày ${stats.today}`}
         icon={DollarSign}
       />
       <StatCard
-        title="Tong no phai thu"
+        title="Tổng nợ phải thu"
         value={formatCurrency(stats.totalDebt)}
-        subtitle="Tinh tu cac phieu chua thanh toan du"
+        subtitle="Tính từ các phiếu chưa thanh toán đủ"
         icon={Banknote}
       />
       <StatCard
-        title="Cong nhan di lam hom nay"
+        title="Công nhân đi làm hôm nay"
         value={String(stats.workersPresent)}
-        subtitle="Trang thai CoMat trong cham cong"
+        subtitle="Trạng thái Có mặt trong chấm công"
         icon={Users}
       />
     </section>
@@ -187,7 +187,7 @@ async function RevenueChartSection() {
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="mb-4 flex items-center gap-2">
         <Activity className="h-5 w-5 text-[#1B5E20]" />
-        <h2 className="text-lg font-semibold text-slate-900">Doanh thu 7 ngay gan nhat</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Doanh thu 7 ngày gần nhất</h2>
       </div>
       <Revenue7DaysChart data={data} />
     </section>
@@ -235,7 +235,7 @@ async function fetchRecentDebtTickets() {
           typedRow.khach_hang ??
           typedRow.xe_hang?.ten_chu_xe ??
           typedRow.xe_hang?.bien_so ??
-          'Khach le',
+          'Khách lẻ',
         amount,
         paid,
         debt,
@@ -253,13 +253,13 @@ async function RecentDebtTicketsSection() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <FileWarning className="h-5 w-5 text-[#1B5E20]" />
-          <h2 className="text-lg font-semibold text-slate-900">Phieu can chua thanh toan gan day</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Phiếu cân chưa thanh toán gần đây</h2>
         </div>
         <Link
           href="/debt"
           className="rounded-lg border border-emerald-200 px-3 py-1.5 text-sm font-medium text-[#1B5E20] hover:bg-emerald-50"
         >
-          Xem tat ca
+          Xem tất cả
         </Link>
       </div>
 
@@ -267,18 +267,18 @@ async function RecentDebtTicketsSection() {
         <table className="min-w-full text-left text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-slate-500">
-              <th className="px-2 py-2 font-medium">Ngay</th>
-              <th className="px-2 py-2 font-medium">Khach hang</th>
-              <th className="px-2 py-2 font-medium">Thanh tien</th>
-              <th className="px-2 py-2 font-medium">Da tra</th>
-              <th className="px-2 py-2 font-medium">Con no</th>
+              <th className="px-2 py-2 font-medium">Ngày</th>
+              <th className="px-2 py-2 font-medium">Khách hàng</th>
+              <th className="px-2 py-2 font-medium">Thành tiền</th>
+              <th className="px-2 py-2 font-medium">Đã trả</th>
+              <th className="px-2 py-2 font-medium">Còn nợ</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
                 <td className="px-2 py-4 text-slate-500" colSpan={5}>
-                  Khong co phieu can con no.
+                  Không có phiếu cân còn nợ.
                 </td>
               </tr>
             ) : (
@@ -345,26 +345,26 @@ async function TodayAttendanceSection() {
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Clock3 className="h-5 w-5 text-[#1B5E20]" />
-          <h2 className="text-lg font-semibold text-slate-900">Cham cong hom nay</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Chấm công hôm nay</h2>
         </div>
         <Link
           href="/attendance"
           className="rounded-lg border border-emerald-200 px-3 py-1.5 text-sm font-medium text-[#1B5E20] hover:bg-emerald-50"
         >
-          Cham cong
+          Chấm công
         </Link>
       </div>
 
-      <p className="mb-3 text-xs text-slate-500">Ngay {attendance.today}</p>
+      <p className="mb-3 text-xs text-slate-500">Ngày {attendance.today}</p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
           <p className="mb-2 text-sm font-semibold text-emerald-800">
-            Da check-in ({attendance.checkedIn.length})
+            Đã check-in ({attendance.checkedIn.length})
           </p>
           <ul className="space-y-1.5 text-sm text-emerald-900">
             {attendance.checkedIn.length === 0 ? (
-              <li>Chua co cong nhan check-in.</li>
+              <li>Chưa có công nhân check-in.</li>
             ) : (
               attendance.checkedIn.slice(0, 8).map((item) => <li key={item.id}>{item.ho_ten}</li>)
             )}
@@ -373,11 +373,11 @@ async function TodayAttendanceSection() {
 
         <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3">
           <p className="mb-2 text-sm font-semibold text-amber-800">
-            Chua check-in ({attendance.absent.length})
+            Chưa check-in ({attendance.absent.length})
           </p>
           <ul className="space-y-1.5 text-sm text-amber-900">
             {attendance.absent.length === 0 ? (
-              <li>Tat ca da check-in.</li>
+              <li>Tất cả đã check-in.</li>
             ) : (
               attendance.absent.slice(0, 8).map((item) => <li key={item.id}>{item.ho_ten}</li>)
             )}

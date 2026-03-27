@@ -61,7 +61,7 @@ export default function TruckForm({
         };
 
         if (!response.ok || !json.success || !json.data) {
-          throw new Error(json.error || 'Khong the tai danh sach khach hang');
+          throw new Error(json.error || 'Không thể tải danh sách khách hàng');
         }
 
         if (!active) return;
@@ -69,7 +69,7 @@ export default function TruckForm({
       } catch (error) {
         if (!active) return;
         setCustomers([]);
-        setCustomerError(error instanceof Error ? error.message : 'Khong the tai danh sach khach hang');
+        setCustomerError(error instanceof Error ? error.message : 'Không thể tải danh sách khách hàng');
       } finally {
         if (active) {
           setLoadingCustomers(false);
@@ -97,11 +97,11 @@ export default function TruckForm({
   }, [congNo, form.thanhToan]);
 
   const selectedCustomer = customers.find((item) => String(item.id) === form.khachHangId);
-  const displayCustomerName = customerName || selectedCustomer?.name || 'khach hang nay';
+  const displayCustomerName = customerName || selectedCustomer?.name || 'khách hàng này';
 
   const formulaText = isFirstTicket
-    ? `📐 Cong thuc: Cong no = ${thanhTien.toLocaleString('vi-VN')} (phieu dau tien cua khach hang ${displayCustomerName})`
-    : `📐 Cong thuc: Cong no = ${thanhTien.toLocaleString('vi-VN')} + ${previousRemain.toLocaleString('vi-VN')} = ${congNo.toLocaleString('vi-VN')}`;
+    ? `📐 Công thức: Công nợ = ${thanhTien.toLocaleString('vi-VN')} (phiếu đầu tiên của khách hàng ${displayCustomerName})`
+    : `📐 Công thức: Công nợ = ${thanhTien.toLocaleString('vi-VN')} + ${previousRemain.toLocaleString('vi-VN')} = ${congNo.toLocaleString('vi-VN')}`;
 
   return (
     <form onSubmit={onSubmit} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -115,7 +115,7 @@ export default function TruckForm({
           required
           disabled={loadingCustomers}
         >
-          <option value="">{loadingCustomers ? 'Dang tai khach hang...' : 'Chon khach hang'}</option>
+          <option value="">{loadingCustomers ? 'Đang tải khách hàng...' : 'Chọn khách hàng'}</option>
           {customers.map((customer) => (
             <option key={customer.id} value={String(customer.id)}>
               {customer.code} - {customer.name}
@@ -175,19 +175,19 @@ export default function TruckForm({
 
       <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm md:grid-cols-2 xl:grid-cols-4">
         <div>
-          <p className="text-slate-500">Thanh tien</p>
+          <p className="text-slate-500">Thành tiền</p>
           <p className="mt-1 font-semibold text-blue-700">{thanhTien.toLocaleString('vi-VN')} đ</p>
         </div>
         <div>
-          <p className="text-slate-500">Con lai phieu truoc</p>
+          <p className="text-slate-500">Còn lại phiếu trước</p>
           <p className="mt-1 font-semibold text-slate-800">{previousRemain.toLocaleString('vi-VN')} đ</p>
         </div>
         <div>
-          <p className="text-slate-500">Cong no</p>
+          <p className="text-slate-500">Công nợ</p>
           <p className="mt-1 font-semibold text-amber-700">{congNo.toLocaleString('vi-VN')} đ</p>
         </div>
         <div>
-          <p className="text-slate-500">Con lai</p>
+          <p className="text-slate-500">Còn lại</p>
           <p className={`mt-1 font-semibold ${conLai > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
             {conLai.toLocaleString('vi-VN')} đ
           </p>
@@ -202,7 +202,7 @@ export default function TruckForm({
         </p>
       )}
       {loadingLastDebt && form.khachHangId && (
-        <p className="mt-2 text-xs text-slate-500">Dang tai cong no phieu truoc...</p>
+        <p className="mt-2 text-xs text-slate-500">Đang tải công nợ phiếu trước...</p>
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

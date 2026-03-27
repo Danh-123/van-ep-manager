@@ -30,16 +30,17 @@ function formatMoney(value: number) {
 }
 
 function statusLabel(status: 'CoMat' | 'Nghi' | 'NghiPhep' | 'LamThem') {
-  if (status === 'CoMat') return 'Co mat';
-  if (status === 'Nghi') return 'Nghi';
-  if (status === 'NghiPhep') return 'Nghi phep';
-  return 'Lam them';
+  if (status === 'CoMat') return 'Có mặt';
+  if (status === 'Nghi') return 'Nghỉ';
+  if (status === 'NghiPhep') return 'Nghỉ phép';
+  return 'Làm thêm';
 }
 
 export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps) {
   const [expandedWorkerId, setExpandedWorkerId] = useState<number | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [detailRow, setDetailRow] = useState<MonthlySalaryRow | null>(null);
+  const [detailWorkerId, setDetailWorkerId] = useState<number | null>(null);
+  const [detailWorkerName, setDetailWorkerName] = useState('');
   const [isPending, startTransition] = useTransition();
 
   const rowCount = useMemo(() => rows.length, [rows.length]);
@@ -51,11 +52,11 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
 
       summarySheet.columns = [
         { header: 'STT', key: 'stt', width: 8 },
-        { header: 'Ho ten', key: 'workerName', width: 28 },
-        { header: 'Luong co ban', key: 'baseSalary', width: 20 },
-        { header: 'Thuong', key: 'bonus', width: 16 },
-        { header: 'Phat', key: 'penalty', width: 16 },
-        { header: 'Tong luong', key: 'totalSalary', width: 20 },
+        { header: 'Họ tên', key: 'workerName', width: 28 },
+        { header: 'Lương cơ bản', key: 'baseSalary', width: 20 },
+        { header: 'Thưởng', key: 'bonus', width: 16 },
+        { header: 'Phạt', key: 'penalty', width: 16 },
+        { header: 'Tổng lương', key: 'totalSalary', width: 20 },
       ];
 
       rows.forEach((row, index) => {
@@ -71,7 +72,7 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
 
       summarySheet.addRow({
         stt: '',
-        workerName: 'Tong cong',
+        workerName: 'Tổng cộng',
         baseSalary: Math.round(totals.baseSalary),
         bonus: Math.round(totals.bonus),
         penalty: Math.round(totals.penalty),
@@ -83,13 +84,13 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
 
       const detailSheet = workbook.addWorksheet('ChiTietLuongNgay');
       detailSheet.columns = [
-        { header: 'Ho ten', key: 'workerName', width: 28 },
-        { header: 'Ngay', key: 'date', width: 14 },
-        { header: 'Trang thai', key: 'status', width: 14 },
-        { header: 'Luong ngay', key: 'dailySalary', width: 18 },
-        { header: 'Thuong', key: 'bonus', width: 16 },
-        { header: 'Phat', key: 'penalty', width: 16 },
-        { header: 'Ghi chu', key: 'note', width: 30 },
+        { header: 'Họ tên', key: 'workerName', width: 28 },
+        { header: 'Ngày', key: 'date', width: 14 },
+        { header: 'Trạng thái', key: 'status', width: 14 },
+        { header: 'Lương ngày', key: 'dailySalary', width: 18 },
+        { header: 'Thưởng', key: 'bonus', width: 16 },
+        { header: 'Phạt', key: 'penalty', width: 16 },
+        { header: 'Ghi chú', key: 'note', width: 30 },
       ];
 
       rows.forEach((row) => {
@@ -121,8 +122,8 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Bang luong thang</h2>
-          <p className="text-sm text-slate-500">So nhan su: {rowCount}</p>
+          <h2 className="text-lg font-semibold text-slate-900">Bảng lương tháng</h2>
+          <p className="text-sm text-slate-500">Số nhân sự: {rowCount}</p>
         </div>
 
         <button
@@ -132,7 +133,7 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
           className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 px-3 py-2 text-sm font-medium text-[#1B5E20] hover:bg-emerald-50 disabled:opacity-60"
         >
           <FileSpreadsheet className="h-4 w-4" />
-          Xuat Excel
+          Xuất Excel
         </button>
       </div>
 
@@ -141,12 +142,12 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
           <thead>
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
               <th className="px-4 py-3 font-medium">STT</th>
-              <th className="px-4 py-3 font-medium">Ho ten</th>
-              <th className="px-4 py-3 font-medium">Luong co ban</th>
-              <th className="px-4 py-3 font-medium">Thuong</th>
-              <th className="px-4 py-3 font-medium">Phat</th>
-              <th className="px-4 py-3 font-medium">Tong luong</th>
-              <th className="px-4 py-3 text-right font-medium">Chi tiet</th>
+              <th className="px-4 py-3 font-medium">Họ tên</th>
+              <th className="px-4 py-3 font-medium">Lương cơ bản</th>
+              <th className="px-4 py-3 font-medium">Thưởng</th>
+              <th className="px-4 py-3 font-medium">Phạt</th>
+              <th className="px-4 py-3 font-medium">Tổng lương</th>
+              <th className="px-4 py-3 text-right font-medium">Chi tiết</th>
             </tr>
           </thead>
 
@@ -154,7 +155,7 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
-                  Khong co du lieu luong trong thang nay.
+                  Không có dữ liệu lương trong tháng này.
                 </td>
               </tr>
             ) : (
@@ -175,7 +176,7 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
                           {row.workerName}
                         </button>
                         <p className="text-xs text-slate-500">
-                          {row.employmentStatus === 'DangLam' ? 'Dang lam' : 'Nghi viec'}
+                          {row.employmentStatus === 'DangLam' ? 'Đang làm' : 'Nghỉ việc'}
                         </p>
                       </td>
                       <td className="px-4 py-3 text-slate-700">{formatMoney(row.baseSalary)}</td>
@@ -187,7 +188,8 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
                           type="button"
                           className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
                           onClick={() => {
-                            setDetailRow(row);
+                            setDetailWorkerId(row.workerId);
+                            setDetailWorkerName(row.workerName);
                             setDetailOpen(true);
                           }}
                         >
@@ -204,19 +206,19 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
                             <table className="min-w-full text-left text-xs">
                               <thead>
                                 <tr className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                                  <th className="px-3 py-2 font-medium">Ngay</th>
-                                  <th className="px-3 py-2 font-medium">Trang thai</th>
-                                  <th className="px-3 py-2 font-medium">Luong ngay</th>
-                                  <th className="px-3 py-2 font-medium">Thuong</th>
-                                  <th className="px-3 py-2 font-medium">Phat</th>
-                                  <th className="px-3 py-2 font-medium">Ghi chu</th>
+                                  <th className="px-3 py-2 font-medium">Ngày</th>
+                                  <th className="px-3 py-2 font-medium">Trạng thái</th>
+                                  <th className="px-3 py-2 font-medium">Lương ngày</th>
+                                  <th className="px-3 py-2 font-medium">Thưởng</th>
+                                  <th className="px-3 py-2 font-medium">Phạt</th>
+                                  <th className="px-3 py-2 font-medium">Ghi chú</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {row.details.length === 0 ? (
                                   <tr>
                                     <td className="px-3 py-3 text-slate-500" colSpan={6}>
-                                      Khong co chi tiet luong ngay.
+                                      Không có chi tiết lương ngày.
                                     </td>
                                   </tr>
                                 ) : (
@@ -250,7 +252,7 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
             <tfoot>
               <tr className="border-t border-slate-300 bg-slate-50 font-semibold text-slate-800">
                 <td className="px-4 py-3" colSpan={2}>
-                  Tong cong
+                  Tổng cộng
                 </td>
                 <td className="px-4 py-3">{formatMoney(totals.baseSalary)}</td>
                 <td className="px-4 py-3 text-emerald-700">{formatMoney(totals.bonus)}</td>
@@ -263,7 +265,13 @@ export default function SalaryTable({ monthKey, rows, totals }: SalaryTableProps
         </table>
       </div>
 
-      <SalaryDetailModal open={detailOpen} row={detailRow} onOpenChange={setDetailOpen} />
+      <SalaryDetailModal
+        open={detailOpen}
+        workerId={detailWorkerId}
+        workerName={detailWorkerName}
+        month={monthKey}
+        onOpenChange={setDetailOpen}
+      />
     </section>
   );
 }

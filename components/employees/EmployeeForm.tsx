@@ -15,11 +15,11 @@ import {
 
 const employeeFormSchema = z.object({
   maCongNhan: z.string().trim().optional(),
-  hoTen: z.string().trim().min(2, 'Ho ten phai co it nhat 2 ky tu').max(120),
+  hoTen: z.string().trim().min(2, 'Họ tên phải có ít nhất 2 ký tự').max(120),
   soDienThoai: z
     .string()
     .trim()
-    .regex(/^[0-9+\-() ]{8,20}$/, 'So dien thoai khong hop le')
+    .regex(/^[0-9+\-() ]{8,20}$/, 'Số điện thoại không hợp lệ')
     .optional()
     .or(z.literal('')),
   isActive: z.boolean(),
@@ -45,7 +45,7 @@ export default function EmployeeForm({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const title = useMemo(() => (mode === 'create' ? 'Them cong nhan' : 'Cap nhat cong nhan'), [mode]);
+  const title = useMemo(() => (mode === 'create' ? 'Thêm công nhân' : 'Cập nhật công nhân'), [mode]);
 
   const {
     register,
@@ -95,7 +95,7 @@ export default function EmployeeForm({
         }
       } else {
         if (!employee) {
-          setError('Khong tim thay du lieu cong nhan');
+          setError('Không tìm thấy dữ liệu công nhân');
           return;
         }
 
@@ -139,12 +139,12 @@ export default function EmployeeForm({
           <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="maCongNhan">
-                Ma cong nhan (auto generate)
+                Mã công nhân (tự động sinh)
               </label>
               <input
                 id="maCongNhan"
                 disabled={mode === 'create' || isPending}
-                placeholder={mode === 'create' ? 'He thong tu dong sinh khi luu' : ''}
+                placeholder={mode === 'create' ? 'Hệ thống tự động sinh khi lưu' : ''}
                 className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-900 outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4 disabled:bg-slate-100"
                 {...register('maCongNhan')}
               />
@@ -153,7 +153,7 @@ export default function EmployeeForm({
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="hoTen">
-                Ho ten
+                Họ tên
               </label>
               <input
                 id="hoTen"
@@ -166,7 +166,7 @@ export default function EmployeeForm({
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="soDienThoai">
-                So dien thoai
+                Số điện thoại
               </label>
               <input
                 id="soDienThoai"
@@ -179,7 +179,7 @@ export default function EmployeeForm({
 
             <label className="inline-flex items-center gap-2 text-sm text-slate-700">
               <input type="checkbox" className="h-4 w-4 rounded border-slate-300" {...register('isActive')} />
-              Dang lam viec
+              Đang làm việc
             </label>
 
             {error && <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -190,7 +190,7 @@ export default function EmployeeForm({
                   type="button"
                   className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  Huy
+                  Hủy
                 </button>
               </Dialog.Close>
 
@@ -200,7 +200,7 @@ export default function EmployeeForm({
                 className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2 text-sm font-medium text-white hover:bg-[#1B5E20] disabled:opacity-70"
               >
                 {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                {mode === 'create' ? 'Tao moi' : 'Luu thay doi'}
+                {mode === 'create' ? 'Tạo mới' : 'Lưu thay đổi'}
               </button>
             </div>
           </form>

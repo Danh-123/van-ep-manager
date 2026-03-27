@@ -87,7 +87,7 @@ export default function PaymentModal({ open, ticket, onOpenChange, onSuccess }: 
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[92vw] max-w-xl -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
           <div className="mb-4 flex items-center justify-between">
-            <Dialog.Title className="text-lg font-semibold text-slate-900">Thanh toan phieu can</Dialog.Title>
+            <Dialog.Title className="text-lg font-semibold text-slate-900">Thanh toán phiếu cân</Dialog.Title>
             <Dialog.Close asChild>
               <button type="button" className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
                 <X className="h-4 w-4" />
@@ -96,17 +96,17 @@ export default function PaymentModal({ open, ticket, onOpenChange, onSuccess }: 
           </div>
 
           {!ticket ? (
-            <p className="text-sm text-slate-500">Khong co du lieu phieu can.</p>
+            <p className="text-sm text-slate-500">Không có dữ liệu phiếu cân.</p>
           ) : (
             <div className="space-y-4">
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-                <p className="text-slate-600">Khach hang: <span className="font-medium text-slate-900">{ticket.khachHang}</span></p>
-                <p className="mt-1 text-slate-600">Thanh tien: <span className="font-medium text-slate-900">{formatMoney(ticket.thanhTien)}</span></p>
-                <p className="mt-1 text-slate-600">No hien tai: <span className="font-semibold text-red-600">{formatMoney(ticket.conNo)}</span></p>
+                <p className="text-slate-600">Khách hàng: <span className="font-medium text-slate-900">{ticket.khachHang}</span></p>
+                <p className="mt-1 text-slate-600">Thành tiền: <span className="font-medium text-slate-900">{formatMoney(ticket.thanhTien)}</span></p>
+                <p className="mt-1 text-slate-600">Nợ hiện tại: <span className="font-semibold text-red-600">{formatMoney(ticket.conNo)}</span></p>
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="soTienThanhToan">So tien thanh toan</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="soTienThanhToan">Số tiền thanh toán</label>
                 <input
                   id="soTienThanhToan"
                   type="number"
@@ -119,7 +119,7 @@ export default function PaymentModal({ open, ticket, onOpenChange, onSuccess }: 
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ngayThanhToan">Ngay thanh toan</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ngayThanhToan">Ngày thanh toán</label>
                 <input
                   id="ngayThanhToan"
                   type="date"
@@ -130,7 +130,7 @@ export default function PaymentModal({ open, ticket, onOpenChange, onSuccess }: 
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ghiChuThanhToan">Ghi chu</label>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="ghiChuThanhToan">Ghi chú</label>
                 <textarea
                   id="ghiChuThanhToan"
                   rows={3}
@@ -159,7 +159,7 @@ export default function PaymentModal({ open, ticket, onOpenChange, onSuccess }: 
                   className="inline-flex items-center gap-2 rounded-lg bg-[#2E7D32] px-4 py-2 text-sm font-medium text-white hover:bg-[#1B5E20] disabled:opacity-70"
                 >
                   {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Xac nhan
+                  Xác nhận
                 </button>
               </div>
             </div>

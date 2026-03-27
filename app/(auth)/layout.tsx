@@ -24,10 +24,10 @@ export default function AuthLayout({
                 VanEpManager
               </div>
               <h1 className="mt-6 text-3xl font-semibold leading-tight">
-                Quan ly van ep va tien cong nhanh, ro rang.
+                Quản lý ván ép và tiền công nhanh, rõ ràng.
               </h1>
               <p className="mt-4 max-w-sm text-sm text-emerald-100/90">
-                Dang nhap de tiep tuc truy cap he thong quan ly cong nhan, cham cong va bao cao.
+                Đăng nhập để tiếp tục truy cập hệ thống quản lý công nhân, chấm công và báo cáo.
               </p>
             </div>
             <p className="text-xs text-emerald-100/80">© {new Date().getFullYear()} VanEpManager</p>

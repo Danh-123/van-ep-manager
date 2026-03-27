@@ -52,6 +52,9 @@ export type EmployeeItem = {
   soDienThoai: string | null;
   trangThai: EmployeeStatus;
   createdAt: string;
+  linkedUserId: string | null;
+  linkedUserEmail: string | null;
+  linkedUserName: string | null;
 };
 
 export type EmployeesQuery = {
@@ -117,7 +120,7 @@ export async function getEmployees(query: EmployeesQuery = {}): Promise<ActionRe
 
   let dbQuery = supabase
     .from('cong_nhan')
-    .select('id, ma_cong_nhan, ho_ten, so_dien_thoai, trang_thai, created_at', { count: 'exact' })
+    .select('id, ma_cong_nhan, ho_ten, so_dien_thoai, trang_thai, created_at, user_id', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(start, end);
 
@@ -141,6 +144,37 @@ export async function getEmployees(query: EmployeesQuery = {}): Promise<ActionRe
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  const linkedIds = Array.from(
+    new Set(
+      (data ?? [])
+        .map((row) => (row as { user_id?: string | null }).user_id)
+        .filter((value): value is string => typeof value === 'string' && value.length > 0),
+    ),
+  );
+
+  let profileMap = new Map<string, { email: string | null; full_name: string | null }>();
+
+  if (linkedIds.length > 0) {
+    const profilesResult = await supabase
+      .from('profiles')
+      .select('id, email, full_name')
+      .in('id', linkedIds);
+
+    if (!profilesResult.error) {
+      profileMap = new Map(
+        (profilesResult.data ?? []).map((profile) => {
+          const typedProfile = profile as {
+            id: string;
+            email: string | null;
+            full_name: string | null;
+          };
+
+          return [typedProfile.id, { email: typedProfile.email, full_name: typedProfile.full_name }];
+        }),
+      );
+    }
+  }
+
   return {
     success: true,
     data: {
@@ -152,7 +186,10 @@ export async function getEmployees(query: EmployeesQuery = {}): Promise<ActionRe
           so_dien_thoai: string | null;
           trang_thai: EmployeeStatus;
           created_at: string;
+          user_id: string | null;
         };
+
+        const profile = typed.user_id ? profileMap.get(typed.user_id) : null;
 
         return {
           id: typed.id,
@@ -161,6 +198,9 @@ export async function getEmployees(query: EmployeesQuery = {}): Promise<ActionRe
           soDienThoai: typed.so_dien_thoai,
           trangThai: typed.trang_thai,
           createdAt: typed.created_at,
+          linkedUserId: typed.user_id,
+          linkedUserEmail: profile?.email ?? null,
+          linkedUserName: profile?.full_name ?? null,
         };
       }),
       page,
@@ -220,6 +260,9 @@ export async function createEmployee(input: z.input<typeof createEmployeeSchema>
       soDienThoai: typed.so_dien_thoai,
       trangThai: typed.trang_thai,
       createdAt: typed.created_at,
+      linkedUserId: null,
+      linkedUserEmail: null,
+      linkedUserName: null,
     },
   };
 }
@@ -273,6 +316,9 @@ export async function updateEmployee(input: z.input<typeof updateEmployeeSchema>
       soDienThoai: typed.so_dien_thoai,
       trangThai: typed.trang_thai,
       createdAt: typed.created_at,
+      linkedUserId: null,
+      linkedUserEmail: null,
+      linkedUserName: null,
     },
   };
 }

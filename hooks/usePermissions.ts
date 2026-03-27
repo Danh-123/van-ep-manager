@@ -3,14 +3,16 @@ import { useMemo } from 'react';
 export type AppRole = 'Admin' | 'KeToan' | 'Viewer';
 export type PermissionResource =
   | 'dashboard'
-  | 'cham-cong'
-  | 'tinh-luong'
-  | 'xe-hang'
-  | 'loai-van-ep'
-  | 'cong-no'
-  | 'bao-cao'
-  | 'cong-nhan'
-  | 'nguoi-dung';
+  | 'attendance'
+  | 'salary'
+  | 'trucks'
+  | 'debt'
+  | 'reports'
+  | 'employees'
+  | 'users'
+  | 'my-salary'
+  | 'my-attendance'
+  | 'my-debt';
 
 type PermissionSet = {
   view: AppRole[];
@@ -24,45 +26,55 @@ const PERMISSIONS: Record<PermissionResource, PermissionSet> = {
     edit: ['Admin', 'KeToan'],
     delete: ['Admin'],
   },
-  'cham-cong': {
-    view: ['Admin', 'KeToan', 'Viewer'],
+  attendance: {
+    view: ['Admin', 'KeToan'],
     edit: ['Admin', 'KeToan'],
     delete: ['Admin'],
   },
-  'tinh-luong': {
-    view: ['Admin', 'KeToan', 'Viewer'],
+  salary: {
+    view: ['Admin', 'KeToan'],
     edit: ['Admin', 'KeToan'],
     delete: ['Admin'],
   },
-  'xe-hang': {
-    view: ['Admin', 'KeToan', 'Viewer'],
+  trucks: {
+    view: ['Admin', 'KeToan'],
     edit: ['Admin', 'KeToan'],
     delete: ['Admin'],
   },
-  'loai-van-ep': {
+  debt: {
+    view: ['Admin', 'KeToan'],
+    edit: ['Admin', 'KeToan'],
+    delete: ['Admin'],
+  },
+  reports: {
+    view: ['Admin', 'KeToan'],
+    edit: ['Admin', 'KeToan'],
+    delete: ['Admin'],
+  },
+  employees: {
+    view: ['Admin', 'KeToan'],
+    edit: ['Admin', 'KeToan'],
+    delete: ['Admin'],
+  },
+  users: {
     view: ['Admin'],
     edit: ['Admin'],
     delete: ['Admin'],
   },
-  'cong-no': {
-    view: ['Admin', 'KeToan', 'Viewer'],
-    edit: ['Admin', 'KeToan'],
-    delete: ['Admin'],
+  'my-salary': {
+    view: ['Viewer'],
+    edit: ['Viewer'],
+    delete: ['Viewer'],
   },
-  'bao-cao': {
-    view: ['Admin', 'KeToan', 'Viewer'],
-    edit: ['Admin', 'KeToan'],
-    delete: ['Admin'],
+  'my-attendance': {
+    view: ['Viewer'],
+    edit: ['Viewer'],
+    delete: ['Viewer'],
   },
-  'cong-nhan': {
-    view: ['Admin', 'KeToan', 'Viewer'],
-    edit: ['Admin', 'KeToan'],
-    delete: ['Admin'],
-  },
-  'nguoi-dung': {
-    view: ['Admin'],
-    edit: ['Admin'],
-    delete: ['Admin'],
+  'my-debt': {
+    view: ['Viewer'],
+    edit: ['Viewer'],
+    delete: ['Viewer'],
   },
 };
 
@@ -90,6 +102,8 @@ export function usePermissions(role: string | null | undefined) {
     return {
       role: currentRole,
       isAdmin: currentRole === 'Admin',
+      isKeToan: currentRole === 'KeToan',
+      isViewer: currentRole === 'Viewer',
       canView,
       canEdit,
       canDelete,
