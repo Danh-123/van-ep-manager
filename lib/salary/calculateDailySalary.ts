@@ -56,12 +56,16 @@ function parseMeta(raw: unknown): AttendanceMeta {
   }
 }
 
-function inferStatus(soLuong: unknown, metaStatus: AttendanceStatus | undefined): AttendanceStatus {
+function inferStatus(dbStatus: unknown, metaStatus: AttendanceStatus | undefined): AttendanceStatus {
   if (metaStatus === 'CoMat' || metaStatus === 'Nghi' || metaStatus === 'NghiPhep' || metaStatus === 'LamThem') {
     return metaStatus;
   }
 
-  return toNumber(soLuong) > 0 ? 'CoMat' : 'Nghi';
+  if (dbStatus === 'CoMat' || dbStatus === 'Nghi' || dbStatus === 'NghiPhep' || dbStatus === 'LamThem') {
+    return dbStatus;
+  }
+
+  return 'Nghi';
 }
 
 function isPresent(status: AttendanceStatus) {
@@ -102,14 +106,14 @@ export async function calculateDailySalaryDetails(workerId: number, monthKey: st
   const [workerAttendanceResult, allAttendanceResult, dailyTotalResult] = await Promise.all([
     supabase
       .from('cham_cong')
-      .select('ngay, so_luong, ghi_chu')
+      .select('ngay, trang_thai, ghi_chu')
       .eq('cong_nhan_id', workerId)
       .gte('ngay', from)
       .lte('ngay', to)
       .order('ngay', { ascending: true }),
     supabase
       .from('cham_cong')
-      .select('ngay, so_luong, ghi_chu')
+      .select('ngay, trang_thai, ghi_chu')
       .gte('ngay', from)
       .lte('ngay', to),
     supabase
@@ -144,7 +148,7 @@ export async function calculateDailySalaryDetails(workerId: number, monthKey: st
     if (!ngay) return;
 
     const meta = parseMeta(row.ghi_chu);
-    const status = inferStatus(row.so_luong, meta.status);
+    const status = inferStatus(row.trang_thai, meta.status);
     if (!isPresent(status)) return;
 
     presentCountByDay.set(ngay, (presentCountByDay.get(ngay) ?? 0) + 1);
@@ -153,7 +157,7 @@ export async function calculateDailySalaryDetails(workerId: number, monthKey: st
   const details: SalaryDetailRow[] = ((workerAttendanceResult.data as Array<Record<string, unknown>> | null) ?? []).map((row) => {
     const ngay = String(row.ngay ?? '');
     const meta = parseMeta(row.ghi_chu);
-    const status = inferStatus(row.so_luong, meta.status);
+    const status = inferStatus(row.trang_thai, meta.status);
     const presentCount = presentCountByDay.get(ngay) ?? 0;
     const totalDayAmount = totalByDay.get(ngay) ?? 0;
 

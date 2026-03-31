@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
-import { calculateMonthlySalary, calculateDailySalary } from '@/lib/salary/calculator';
 import { createClient } from '@/lib/supabase/server';
 
 const attendanceStatusSchema = z.enum(['CoMat', 'Nghi', 'NghiPhep', 'LamThem']);
@@ -139,7 +138,7 @@ export async function getAttendanceByDate(
 
   const attendanceResult = await supabase
     .from('cham_cong')
-    .select('id, cong_nhan_id, ngay, so_luong, don_gia, thanh_tien, ghi_chu')
+    .select('id, cong_nhan_id, trang_thai, ghi_chu')
     .eq('ngay', date);
 
   if (attendanceResult.error) {
@@ -167,34 +166,31 @@ export async function getAttendanceByDate(
     return { success: false, error: dailyTotalResult.error.message };
   }
 
-  const attendanceMap = new Map<number, {
-    id: number;
-    so_luong: number;
-    don_gia: number;
-    thanh_tien: number;
-    meta: AttendanceMeta;
-  }>();
+  const attendanceMap = new Map<
+    number,
+    {
+      id: number;
+      status: AttendanceStatus;
+      meta: AttendanceMeta;
+    }
+  >();
 
   (attendanceResult.data ?? []).forEach((row) => {
     const typed = row as {
       id: number;
       cong_nhan_id: number;
-      so_luong: number | string;
-      don_gia: number | string;
-      thanh_tien: number | string;
+      trang_thai: AttendanceStatus;
       ghi_chu: string | null;
     };
 
     attendanceMap.set(typed.cong_nhan_id, {
       id: typed.id,
-      so_luong: toNumber(typed.so_luong),
-      don_gia: toNumber(typed.don_gia),
-      thanh_tien: toNumber(typed.thanh_tien),
+      status: typed.trang_thai,
       meta: parseMeta(typed.ghi_chu),
     });
   });
 
-  const rows: AttendanceRow[] = (workersResult.data ?? []).map((worker) => {
+  const baseRows: AttendanceRow[] = (workersResult.data ?? []).map((worker) => {
     const w = worker as {
       id: number;
       ma_cong_nhan: string;
@@ -205,7 +201,7 @@ export async function getAttendanceByDate(
     const attendance = attendanceMap.get(w.id);
     const meta = attendance?.meta ?? {};
 
-    const status = (meta.status ?? (attendance && attendance.so_luong > 0 ? 'CoMat' : 'Nghi')) as AttendanceStatus;
+    const status = (meta.status ?? attendance?.status ?? 'Nghi') as AttendanceStatus;
     const bonus = Number.isFinite(meta.bonus) ? Number(meta.bonus) : 0;
     const penalty = Number.isFinite(meta.penalty) ? Number(meta.penalty) : 0;
 
@@ -221,7 +217,7 @@ export async function getAttendanceByDate(
       bonus,
       penalty,
       note: meta.note ?? '',
-      computedSalary: Math.max(0, toNumber(attendance?.thanh_tien ?? 0) + bonus - penalty),
+      computedSalary: 0,
     };
   });
 
@@ -238,7 +234,13 @@ export async function getAttendanceByDate(
     0,
   );
 
-  const presentCount = rows.filter((row) => isPresentStatus(row.status)).length;
+  const presentCount = baseRows.filter((row) => isPresentStatus(row.status)).length;
+  const unitAmount = presentCount > 0 ? dailyTotalSalary / presentCount : 0;
+
+  const rows = baseRows.map((row) => ({
+    ...row,
+    computedSalary: isPresentStatus(row.status) ? Math.max(0, unitAmount + row.bonus - row.penalty) : 0,
+  }));
 
   return {
     success: true,
@@ -268,7 +270,7 @@ export async function updateAttendance(
 
   const existingResult = await supabase
     .from('cham_cong')
-    .select('id, don_gia')
+    .select('id')
     .eq('cong_nhan_id', payload.congNhanId)
     .eq('ngay', payload.date)
     .maybeSingle();
@@ -277,14 +279,10 @@ export async function updateAttendance(
     return { success: false, error: existingResult.error.message };
   }
 
-  const donGia = toNumber((existingResult.data as { don_gia?: number | string } | null)?.don_gia) || 0;
-  const soLuong = isPresentStatus(payload.status) ? 1 : 0;
-
   const record = {
     cong_nhan_id: payload.congNhanId,
     ngay: payload.date,
-    so_luong: soLuong,
-    don_gia: soLuong > 0 ? donGia : 0,
+    trang_thai: payload.status,
     ghi_chu: serializeMeta({
       status: payload.status,
       checkIn: payload.checkIn,
@@ -332,7 +330,7 @@ export async function saveDailySalary(
 
   const attendanceResult = await supabase
     .from('cham_cong')
-    .select('id, cong_nhan_id, so_luong, ghi_chu')
+    .select('id, cong_nhan_id, trang_thai, ghi_chu')
     .eq('ngay', date);
 
   if (attendanceResult.error) {
@@ -340,9 +338,14 @@ export async function saveDailySalary(
   }
 
   const attendanceRows = (attendanceResult.data ?? []).map((row) => {
-    const typed = row as { id: number; cong_nhan_id: number; so_luong: number | string; ghi_chu: string | null };
+    const typed = row as {
+      id: number;
+      cong_nhan_id: number;
+      trang_thai: AttendanceStatus;
+      ghi_chu: string | null;
+    };
     const meta = parseMeta(typed.ghi_chu);
-    const inferredStatus = (meta.status ?? (toNumber(typed.so_luong) > 0 ? 'CoMat' : 'Nghi')) as AttendanceStatus;
+    const inferredStatus = (meta.status ?? typed.trang_thai ?? 'Nghi') as AttendanceStatus;
 
     return {
       id: typed.id,
@@ -354,7 +357,7 @@ export async function saveDailySalary(
     };
   });
 
-  const presentRows = attendanceRows.filter((row) => row.status === 'CoMat');
+  const presentRows = attendanceRows.filter((row) => isPresentStatus(row.status));
   const presentCount = presentRows.length;
 
   if (presentCount === 0) {
@@ -363,8 +366,6 @@ export async function saveDailySalary(
         const updateResult = await supabase
           .from('cham_cong')
           .update({
-            so_luong: 0,
-            don_gia: 0,
             ghi_chu: serializeMeta({
               ...row.meta,
               status: row.status,
@@ -380,7 +381,6 @@ export async function saveDailySalary(
       }
 
       await supabase.rpc('recalculate_luong_ngay', { p_ngay: date });
-      await calculateMonthlySalary(new Date(`${date}T00:00:00`));
 
       revalidatePath('/attendance');
       revalidatePath('/dashboard');
@@ -404,29 +404,15 @@ export async function saveDailySalary(
 
   const unitAmount = totalAmount / presentCount;
 
-  const dailySalaryMap = calculateDailySalary(
-    totalAmount,
-    attendanceRows.map((row) => ({
-      cong_nhan_id: row.cong_nhanId,
-      trang_thai: row.status,
-      thuong: Number(row.bonus || 0),
-      phat: Number(row.penalty || 0),
-    })),
-  );
-
   for (const row of attendanceRows) {
     const status = row.status;
-    const isPresentWorker = status === 'CoMat';
     const bonus = Number(row.bonus || 0);
     const penalty = Number(row.penalty || 0);
-    const hasCalculatedSalary = dailySalaryMap.has(row.cong_nhanId);
-    const baseDonGia = hasCalculatedSalary ? unitAmount : 0;
 
     const updateResult = await supabase
       .from('cham_cong')
       .update({
-        so_luong: isPresentWorker ? 1 : 0,
-        don_gia: baseDonGia,
+        trang_thai: status,
         ghi_chu: serializeMeta({
           ...row.meta,
           status,
@@ -442,7 +428,6 @@ export async function saveDailySalary(
   }
 
   await supabase.rpc('recalculate_luong_ngay', { p_ngay: date });
-  await calculateMonthlySalary(new Date(`${date}T00:00:00`));
 
   revalidatePath('/attendance');
   revalidatePath('/dashboard');

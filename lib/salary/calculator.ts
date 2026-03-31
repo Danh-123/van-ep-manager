@@ -115,18 +115,24 @@ export async function calculateMonthlySalary(
     workerQuery = workerQuery.eq('id', workerId);
   }
 
-  const [workersResult, attendanceResult, monthlyExistingResult] = await Promise.all([
+  // Fetch workers, attendance records (for status and metadata), and monthly salary data from luong_thang
+  const [workersResult, attendanceResult, monthlyDataResult, dailyTotalsResult] = await Promise.all([
     workerQuery,
     supabase
       .from('cham_cong')
-      .select('cong_nhan_id, ngay, thanh_tien, so_luong, ghi_chu')
+      .select('cong_nhan_id, ngay, trang_thai, ghi_chu')
       .gte('ngay', start)
       .lte('ngay', end),
     supabase
       .from('luong_thang')
-      .select('cong_nhan_id, tong_da_thanh_toan')
+      .select('cong_nhan_id, tong_tien_cong, tong_da_thanh_toan')
       .eq('thang', month.getMonth() + 1)
       .eq('nam', month.getFullYear()),
+    supabase
+      .from('tong_tien_cong_ngay')
+      .select('ngay, tong_tien')
+      .gte('ngay', start)
+      .lte('ngay', end),
   ]);
 
   if (workersResult.error) {
@@ -135,12 +141,31 @@ export async function calculateMonthlySalary(
   if (attendanceResult.error) {
     throw new Error(attendanceResult.error.message);
   }
-  if (monthlyExistingResult.error) {
-    throw new Error(monthlyExistingResult.error.message);
+  if (monthlyDataResult.error) {
+    throw new Error(monthlyDataResult.error.message);
+  }
+  if (dailyTotalsResult.error) {
+    throw new Error(dailyTotalsResult.error.message);
   }
 
-  const baseByWorker = new Map<number, number>();
+  // Build map of daily salary totals for creating daily details
+  const dailyTotalsMap = new Map<string, number>();
+  (dailyTotalsResult.data ?? []).forEach((row) => {
+    const typed = row as { ngay: string; tong_tien: number | string };
+    dailyTotalsMap.set(typed.ngay, toNumber(typed.tong_tien));
+  });
 
+  // Build maps for worker salary data and adjustments
+  const baseSalaryByWorker = new Map<number, number>();
+  const paidByWorker = new Map<number, number>();
+
+  (monthlyDataResult.data ?? []).forEach((row) => {
+    const typed = row as { cong_nhan_id: number; tong_tien_cong: number | string; tong_da_thanh_toan: number | string };
+    baseSalaryByWorker.set(typed.cong_nhan_id, toNumber(typed.tong_tien_cong));
+    paidByWorker.set(typed.cong_nhan_id, toNumber(typed.tong_da_thanh_toan));
+  });
+
+  // Build daily details from attendance records
   const detailsByWorker = new Map<number, SalaryDailyDetail[]>();
   const bonusByWorker = new Map<number, number>();
   const penaltyByWorker = new Map<number, number>();
@@ -149,22 +174,19 @@ export async function calculateMonthlySalary(
     const typed = row as {
       cong_nhan_id: number;
       ngay: string;
-      thanh_tien: number | string;
-      so_luong: number | string;
+      trang_thai: string;
       ghi_chu: string | null;
     };
 
     const meta = parseMeta(typed.ghi_chu);
-    const inferredStatus = meta.status ?? (toNumber(typed.so_luong) > 0 ? 'CoMat' : 'Nghi');
+    const status = meta.status ?? (typed.trang_thai as 'CoMat' | 'Nghi' | 'NghiPhep' | 'LamThem');
     const bonus = toNumber(meta.bonus);
     const penalty = toNumber(meta.penalty);
-    const dailySalary = toNumber(typed.thanh_tien);
-
-    baseByWorker.set(typed.cong_nhan_id, (baseByWorker.get(typed.cong_nhan_id) ?? 0) + dailySalary);
+    const dailySalary = dailyTotalsMap.get(typed.ngay) ?? 0;
 
     const detail: SalaryDailyDetail = {
       date: typed.ngay,
-      status: inferredStatus,
+      status,
       dailySalary,
       bonus,
       penalty,
@@ -179,15 +201,10 @@ export async function calculateMonthlySalary(
     penaltyByWorker.set(typed.cong_nhan_id, (penaltyByWorker.get(typed.cong_nhan_id) ?? 0) + penalty);
   });
 
-  const paidByWorker = new Map<number, number>();
-  (monthlyExistingResult.data ?? []).forEach((row) => {
-    const typed = row as { cong_nhan_id: number; tong_da_thanh_toan: number | string };
-    paidByWorker.set(typed.cong_nhan_id, toNumber(typed.tong_da_thanh_toan));
-  });
-
+  // Build salary rows from workers and fetched data
   const rows: MonthlySalaryRow[] = (workersResult.data ?? []).map((row) => {
     const worker = row as { id: number; ho_ten: string; trang_thai: 'DangLam' | 'NghiViec' };
-    const baseSalary = baseByWorker.get(worker.id) ?? 0;
+    const baseSalary = baseSalaryByWorker.get(worker.id) ?? 0;
     const bonus = bonusByWorker.get(worker.id) ?? 0;
     const penalty = penaltyByWorker.get(worker.id) ?? 0;
     const totalSalary = Math.max(0, baseSalary + bonus - penalty);
@@ -206,33 +223,38 @@ export async function calculateMonthlySalary(
     };
   });
 
+  // Update luong_thang with any adjustments if present
   for (const row of rows) {
+    const baseSalary = baseSalaryByWorker.get(row.workerId) ?? 0;
     const paid = Math.min(paidByWorker.get(row.workerId) ?? 0, row.totalSalary);
 
-    const upsertResult = await supabase
-      .from('luong_thang')
-      .upsert(
-        {
-          cong_nhan_id: row.workerId,
-          thang: month.getMonth() + 1,
-          nam: month.getFullYear(),
-          tong_tien_cong: row.totalSalary,
-          tong_da_thanh_toan: paid,
-          trang_thai:
-            paid === 0
-              ? 'ChuaChot'
-              : paid < row.totalSalary
-                ? 'DaThanhToanMotPhan'
-                : 'DaThanhToanHet',
-          closed_at: paid >= row.totalSalary && row.totalSalary > 0 ? new Date().toISOString() : null,
-        },
-        { onConflict: 'cong_nhan_id,thang,nam' },
-      )
-      .select('id')
-      .single();
+    // Only update if there's a base salary or if record exists (has changes)
+    if (baseSalary > 0 || baseSalaryByWorker.has(row.workerId)) {
+      const upsertResult = await supabase
+        .from('luong_thang')
+        .upsert(
+          {
+            cong_nhan_id: row.workerId,
+            thang: month.getMonth() + 1,
+            nam: month.getFullYear(),
+            tong_tien_cong: row.totalSalary,
+            tong_da_thanh_toan: paid,
+            trang_thai:
+              paid === 0
+                ? 'ChuaChot'
+                : paid < row.totalSalary
+                  ? 'DaThanhToanMotPhan'
+                  : 'DaThanhToanHet',
+            closed_at: paid >= row.totalSalary && row.totalSalary > 0 ? new Date().toISOString() : null,
+          },
+          { onConflict: 'cong_nhan_id,thang,nam' },
+        )
+        .select('id')
+        .single();
 
-    if (upsertResult.error) {
-      throw new Error(upsertResult.error.message);
+      if (upsertResult.error) {
+        throw new Error(upsertResult.error.message);
+      }
     }
   }
 

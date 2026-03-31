@@ -122,6 +122,13 @@ export default function SalaryPage() {
         cache: 'no-store',
       });
 
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        setError('Phiên đăng nhập đã hết hạn hoặc không có quyền truy cập. Vui lòng đăng nhập lại.');
+        setMonthLoading(month, false);
+        return;
+      }
+
       const payload = (await response.json()) as SalaryMonthData | { error: string };
 
       if (!response.ok || 'error' in payload) {
@@ -214,6 +221,13 @@ export default function SalaryPage() {
         }),
       });
 
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        setError('Phiên đăng nhập đã hết hạn hoặc không có quyền truy cập. Vui lòng đăng nhập lại.');
+        setMonthSavingAdjust(month, false);
+        return;
+      }
+
       const payload = (await response.json()) as SalaryMonthData | { error: string };
 
       if (!response.ok || 'error' in payload) {
@@ -246,6 +260,13 @@ export default function SalaryPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'recalculate', month }),
       });
+
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        setError('Phiên đăng nhập đã hết hạn hoặc không có quyền truy cập. Vui lòng đăng nhập lại.');
+        setMonthRecalculating(month, false);
+        return;
+      }
 
       const payload = (await response.json()) as SalaryMonthData | { error: string };
 

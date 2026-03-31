@@ -65,6 +65,14 @@ export default function AttendancePage() {
           cache: 'no-store',
         });
 
+        const contentType = response.headers.get('content-type') ?? '';
+        if (!contentType.includes('application/json')) {
+          setRows([]);
+          setError('Phiên đăng nhập đã hết hạn hoặc không có quyền truy cập. Vui lòng đăng nhập lại.');
+          setLoading(false);
+          return;
+        }
+
         const data = (await response.json()) as
           | { success: true; data: AttendanceLoadResponse }
           | { success: false; error: string };
@@ -141,6 +149,13 @@ export default function AttendancePage() {
           rows,
         }),
       });
+
+      const contentType = response.headers.get('content-type') ?? '';
+      if (!contentType.includes('application/json')) {
+        setError('Phiên đăng nhập đã hết hạn hoặc không có quyền truy cập. Vui lòng đăng nhập lại.');
+        setSaving(false);
+        return;
+      }
 
       const data = (await response.json()) as
         | { success: true; data: { totalSalary: number; presentCount: number; salaryPerPerson: number } }

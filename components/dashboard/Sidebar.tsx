@@ -42,29 +42,37 @@ type MenuItem = {
     | 'my-salary'
     | 'my-attendance'
     | 'my-debt';
+  /** Các role được phép xem menu item này */
+  allowedRoles?: ('Admin' | 'KeToan' | 'Viewer')[];
 };
 
-const MENU_ITEMS: MenuItem[] = [
+/**
+ * Menu items cho Admin và Kế toán
+ * - Chấm công: chỉ Admin và Kế toán
+ * - Tính lương: chỉ Admin và Kế toán
+ */
+const ADMIN_MENU_ITEMS: MenuItem[] = [
   { label: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
-  { label: 'Chấm công', href: '/attendance', icon: ClipboardCheck, resource: 'attendance' },
-  { label: 'Tính lương', href: '/salary', icon: WalletCards, resource: 'salary' },
-  { label: 'Xe hàng', href: '/trucks', icon: Truck, resource: 'trucks' },
-  { label: 'Công nợ', href: '/debt', icon: WalletCards, resource: 'debt' },
-  { label: 'Báo cáo', href: '/reports', icon: BarChart3, resource: 'reports' },
-  { label: 'Danh sách', href: '/employees', icon: Users, resource: 'employees' },
-  { label: 'Người dùng', href: '/users', icon: UserCog, resource: 'users' },
+  { label: 'Chấm công', href: '/attendance', icon: ClipboardCheck, resource: 'attendance', allowedRoles: ['Admin', 'KeToan'] },
+  { label: 'Tính lương', href: '/salary', icon: WalletCards, resource: 'salary', allowedRoles: ['Admin', 'KeToan'] },
+  { label: 'Xe hàng', href: '/trucks', icon: Truck, resource: 'trucks', allowedRoles: ['Admin', 'KeToan'] },
+  { label: 'Công nợ', href: '/debt', icon: WalletCards, resource: 'debt', allowedRoles: ['Admin', 'KeToan'] },
+  { label: 'Báo cáo', href: '/reports', icon: BarChart3, resource: 'reports', allowedRoles: ['Admin', 'KeToan'] },
+  { label: 'Danh sách', href: '/employees', icon: Users, resource: 'employees', allowedRoles: ['Admin', 'KeToan'] },
+  { label: 'Người dùng', href: '/users', icon: UserCog, resource: 'users', allowedRoles: ['Admin'] },
 ];
 
-const VIEWER_MENU_ITEMS: Array<{
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  resource: 'dashboard' | 'my-salary' | 'my-attendance' | 'my-debt';
-}> = [
-  { label: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
-  { label: 'Lương của tôi', href: '/my-salary', icon: WalletCards, resource: 'my-salary' },
-  { label: 'Chấm công của tôi', href: '/my-attendance', icon: CalendarCheck, resource: 'my-attendance' },
-  { label: 'Công nợ của tôi', href: '/my-debt', icon: WalletCards, resource: 'my-debt' },
+/**
+ * Menu items cho Viewer (Công nhân)
+ * - Lương của tôi: chỉ Viewer (với điều kiện liên kết)
+ * - Chấm công của tôi: chỉ Viewer (với điều kiện liên kết)
+ * - Công nợ của tôi: chỉ Viewer (với điều kiện liên kết)
+ */
+const VIEWER_MENU_ITEMS: MenuItem[] = [
+  { label: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard', allowedRoles: ['Viewer'] },
+  { label: 'Lương của tôi', href: '/my-salary', icon: WalletCards, resource: 'my-salary', allowedRoles: ['Viewer'] },
+  { label: 'Chấm công của tôi', href: '/my-attendance', icon: CalendarCheck, resource: 'my-attendance', allowedRoles: ['Viewer'] },
+  { label: 'Công nợ của tôi', href: '/my-debt', icon: WalletCards, resource: 'my-debt', allowedRoles: ['Viewer'] },
 ];
 
 type SidebarUserState = {
@@ -167,19 +175,49 @@ export default function Sidebar({ role }: SidebarProps) {
     return <aside aria-hidden className="hidden w-72 shrink-0 bg-[#1B5E20] md:block" />;
   }
 
-  const visibleItems = !isViewer
-    ? MENU_ITEMS.filter((item) => canView(item.resource))
-    : VIEWER_MENU_ITEMS.filter((item) => {
-        if (item.resource === 'my-salary' || item.resource === 'my-attendance') {
-          return user.hasWorkerLink;
-        }
+  /**
+   * Xác định danh sách menu items dựa trên role
+   * - Viewer: Chỉ xem Lương của tôi, Chấm công của tôi, Công nợ của tôi
+   * - Admin/KeToan: Xem tất cả menu quản lý
+   */
+  let visibleItems: MenuItem[] = [];
 
-        if (item.resource === 'my-debt') {
-          return user.hasCustomerLink;
-        }
+  if (isViewer) {
+    // Menu cho Viewer (Công nhân)
+    visibleItems = VIEWER_MENU_ITEMS.filter((item) => {
+      // Kiểm tra role được phép
+      if (item.allowedRoles && !item.allowedRoles.includes('Viewer')) {
+        return false;
+      }
 
-        return true;
-      }).filter((item) => canView(item.resource));
+      // Kiểm tra quyền truy cập từ permission system
+      if (!canView(item.resource)) {
+        return false;
+      }
+
+      // Kiểm tra nếu menu liên quan đến dữ liệu cá nhân, cần có liên kết
+      if (item.resource === 'my-salary' || item.resource === 'my-attendance') {
+        return user.hasWorkerLink;
+      }
+
+      if (item.resource === 'my-debt') {
+        return user.hasCustomerLink;
+      }
+
+      return true;
+    });
+  } else {
+    // Menu cho Admin và Kế toán
+    visibleItems = ADMIN_MENU_ITEMS.filter((item) => {
+      // Kiểm tra role được phép
+      if (item.allowedRoles && !item.allowedRoles.includes(user.user.role)) {
+        return false;
+      }
+
+      // Kiểm tra quyền truy cập từ permission system
+      return canView(item.resource);
+    });
+  }
 
   const handleSignOut = () => {
     startSignOut(async () => {

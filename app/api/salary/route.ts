@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import { calculateMonthlySalary, type MonthlySalaryRow } from '@/lib/salary/calculator';
+import { recalculateLuongThangByMonthKey } from '@/lib/salary/recalculateMonthly';
 import { createClient } from '@/lib/supabase/server';
 
 type SalaryRowResponse = {
@@ -24,6 +24,16 @@ type SalaryMonthDataResponse = {
     penalty: number;
     totalSalary: number;
   };
+};
+
+type ViewSalaryRow = {
+  thang: string;
+  luong_co_ban: number;
+  thuong: number;
+  phat: number;
+  tong_luong: number;
+  ho_ten: string;
+  ma_cong_nhan: string;
 };
 
 type AttendanceMeta = {
@@ -73,17 +83,24 @@ function parseMeta(raw: string | null): AttendanceMeta {
   }
 }
 
-function toMonthPayload(monthKey: string, rows: MonthlySalaryRow[]): SalaryMonthDataResponse {
-  const mappedRows: SalaryRowResponse[] = rows.map((row) => ({
-    workerId: row.workerId,
-    hoTen: row.workerName,
-    baseSalary: row.baseSalary,
-    bonus: row.bonus,
-    penalty: row.penalty,
-    totalSalary: row.totalSalary,
-  }));
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return Number(value);
+  return 0;
+}
 
-  const totals = mappedRows.reduce(
+function monthStart(monthKey: string) {
+  return `${monthKey}-01`;
+}
+
+function monthEndExclusive(monthKey: string) {
+  const [year, month] = monthKey.split('-').map(Number);
+  const date = new Date(year, month, 1);
+  return format(date, 'yyyy-MM-dd');
+}
+
+function toMonthPayload(monthKey: string, rows: SalaryRowResponse[]): SalaryMonthDataResponse {
+  const totals = rows.reduce(
     (acc, row) => ({
       baseSalary: acc.baseSalary + row.baseSalary,
       bonus: acc.bonus + row.bonus,
@@ -96,9 +113,54 @@ function toMonthPayload(monthKey: string, rows: MonthlySalaryRow[]): SalaryMonth
   return {
     month: monthKey,
     monthLabel: format(parseMonth(monthKey), 'MM/yyyy'),
-    rows: mappedRows,
+    rows,
     totals,
   };
+}
+
+async function loadMonthFromView(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  monthKey: string,
+): Promise<SalaryMonthDataResponse> {
+  const from = monthStart(monthKey);
+  const to = monthEndExclusive(monthKey);
+
+  const [viewResult, workersResult] = await Promise.all([
+    supabase
+      .from('view_luong_ca_nhan')
+      .select('thang, luong_co_ban, thuong, phat, tong_luong, ho_ten, ma_cong_nhan')
+      .gte('thang', from)
+      .lt('thang', to)
+      .order('ho_ten', { ascending: true }),
+    supabase.from('cong_nhan').select('id, ma_cong_nhan, ho_ten'),
+  ]);
+
+  if (viewResult.error) {
+    throw new Error(viewResult.error.message);
+  }
+  if (workersResult.error) {
+    throw new Error(workersResult.error.message);
+  }
+
+  const workers = (workersResult.data ?? []) as Array<{ id: number; ma_cong_nhan: string; ho_ten: string }>;
+  const idByCode = new Map<string, number>();
+  workers.forEach((worker) => idByCode.set(worker.ma_cong_nhan, worker.id));
+
+  const viewRows = (viewResult.data ?? []) as Array<Record<string, unknown>>;
+  const mappedRows: SalaryRowResponse[] = viewRows.map((row) => {
+    const typed = row as unknown as ViewSalaryRow;
+
+    return {
+      workerId: idByCode.get(String(typed.ma_cong_nhan ?? '')) ?? 0,
+      hoTen: String(typed.ho_ten ?? ''),
+      baseSalary: toNumber(typed.luong_co_ban),
+      bonus: toNumber(typed.thuong),
+      penalty: toNumber(typed.phat),
+      totalSalary: toNumber(typed.tong_luong),
+    };
+  });
+
+  return toMonthPayload(monthKey, mappedRows);
 }
 
 async function ensureManagerAccess() {
@@ -145,10 +207,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const monthDate = parseMonth(parsedMonth.data);
-    const rows = await calculateMonthlySalary(monthDate);
-    const payload = toMonthPayload(parsedMonth.data, rows);
-
+    const payload = await loadMonthFromView(access.supabase, parsedMonth.data);
     return NextResponse.json(payload);
   } catch (error) {
     return NextResponse.json(
@@ -172,20 +231,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const monthDate = parseMonth(parsed.data.month);
+    await recalculateLuongThangByMonthKey(access.supabase, parsed.data.month);
 
-    const recalcResult = await access.supabase.rpc('recalculate_luong_thang', {
-      p_thang: monthDate.getMonth() + 1,
-      p_nam: monthDate.getFullYear(),
-      p_cong_nhan_id: null,
-    });
-
-    if (recalcResult.error) {
-      return NextResponse.json({ error: recalcResult.error.message }, { status: 500 });
-    }
-
-    const rows = await calculateMonthlySalary(monthDate);
-    const payload = toMonthPayload(parsed.data.month, rows);
+    const payload = await loadMonthFromView(access.supabase, parsed.data.month);
 
     return NextResponse.json(payload);
   } catch (error) {
@@ -215,9 +263,10 @@ export async function PATCH(request: NextRequest) {
     const lastDay = format(new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0), 'yyyy-MM-dd');
 
     for (const adjustment of parsed.data.adjustments) {
+      // Fetch cham_cong records for the month to find where to store adjustments
       const monthlyRowsResult = await access.supabase
         .from('cham_cong')
-        .select('id, ngay, so_luong, don_gia, ghi_chu')
+        .select('id, ngay, ghi_chu')
         .eq('cong_nhan_id', adjustment.workerId)
         .gte('ngay', firstDay)
         .lte('ngay', lastDay)
@@ -230,24 +279,23 @@ export async function PATCH(request: NextRequest) {
       const rows = (monthlyRowsResult.data ?? []) as Array<{
         id: number;
         ngay: string;
-        so_luong: number | string;
-        don_gia: number | string;
         ghi_chu: string | null;
       }>;
 
+      // Find adjustment row or first day row to update
       const adjustmentRow = rows.find((row) => parseMeta(row.ghi_chu).salaryAdjustment === true);
       const firstDayRow = rows.find((row) => row.ngay === firstDay);
       const targetRow = adjustmentRow ?? firstDayRow;
 
       if (targetRow) {
+        // Update existing record with new bonus/penalty in metadata
         const currentMeta = parseMeta(targetRow.ghi_chu);
 
         const updateResult = await access.supabase
           .from('cham_cong')
           .update({
             ghi_chu: JSON.stringify({
-              ...currentMeta,
-              status: currentMeta.status ?? (Number(targetRow.so_luong) > 0 ? 'CoMat' : 'Nghi'),
+              status: currentMeta.status ?? 'Nghi',
               bonus: adjustment.bonus,
               penalty: adjustment.penalty,
               note: currentMeta.note ?? '',
@@ -260,11 +308,11 @@ export async function PATCH(request: NextRequest) {
           return NextResponse.json({ error: updateResult.error.message }, { status: 500 });
         }
       } else {
+        // Create new adjustment record on first day of month
         const insertResult = await access.supabase.from('cham_cong').insert({
           cong_nhan_id: adjustment.workerId,
           ngay: firstDay,
-          so_luong: 0,
-          don_gia: 0,
+          trang_thai: 'Nghi',
           ghi_chu: JSON.stringify({
             status: 'Nghi',
             bonus: adjustment.bonus,
@@ -280,8 +328,9 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const rows = await calculateMonthlySalary(monthDate);
-    const payload = toMonthPayload(parsed.data.month, rows);
+    await recalculateLuongThangByMonthKey(access.supabase, parsed.data.month);
+
+    const payload = await loadMonthFromView(access.supabase, parsed.data.month);
 
     return NextResponse.json(payload);
   } catch (error) {
