@@ -1,6 +1,18 @@
-# Deployment Checklist & Manual Testing Guide
+# 📋 DEPLOYMENT CHECKLIST - VanEpManager Production
 
-## 📋 Pre-Deployment Checklist (2-3 hours before deploy)
+**Ngày:** Tháng 4, 2026  
+**Phiên bản:** 0.1.0  
+**Dành cho:** Tech Lead, DevOps, Project Manager
+
+---
+
+## 🎯 Mục Tiêu Deploy
+
+Deploy ứng dụng VanEpManager lên production **sạch sẽ**, **an toàn**, **không bug**.
+
+---
+
+## ✅ PRE-DEPLOYMENT CHECKLIST (Trước 1 ngày)
 
 ### Code Quality & Security
 - [ ] Run `npm run lint` - all checks pass ✓
