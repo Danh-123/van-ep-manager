@@ -6,14 +6,15 @@ import { Download } from 'lucide-react';
 import { useMemo, useState, useTransition } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+import { formatNumber } from '@/lib/utils/format';
+
 type DebtRow = {
   id: number;
   ngay: string;
-  bien_so_xe: string;
+  so_phieu: string;
   so_tan: number;
   don_gia: number;
   thanh_tien: number;
-  cong_no: number;
   thanh_toan: number;
   con_lai: number;
   ten_khach_hang: string;
@@ -54,6 +55,14 @@ function normalizeFileName(input: string) {
     .replace(/[^a-zA-Z0-9_-]+/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '');
+}
+
+function todayStamp() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}`;
 }
 
 function DebtSkeleton() {
@@ -126,7 +135,7 @@ export default function PersonalDebtTable({ customerName }: PersonalDebtTablePro
 
           sheet.columns = [
             { header: 'Ngay', key: 'ngay', width: 14 },
-            { header: 'Bien so', key: 'bien_so_xe', width: 16 },
+            { header: 'So phieu', key: 'so_phieu', width: 16 },
             { header: 'So tan', key: 'so_tan', width: 12 },
             { header: 'Thanh tien', key: 'thanh_tien', width: 16 },
             { header: 'Da thanh toan', key: 'thanh_toan', width: 18 },
@@ -134,7 +143,7 @@ export default function PersonalDebtTable({ customerName }: PersonalDebtTablePro
           ];
 
           const headerRow = sheet.getRow(3);
-          headerRow.values = ['Ngay', 'Bien so', 'So tan', 'Thanh tien', 'Da thanh toan', 'Con no'];
+          headerRow.values = ['Ngay', 'So phieu', 'So tan', 'Thanh tien', 'Da thanh toan', 'Con no'];
           headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
           headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
           headerRow.eachCell((cell) => {
@@ -154,7 +163,7 @@ export default function PersonalDebtTable({ customerName }: PersonalDebtTablePro
           debtRows.forEach((row) => {
             const excelRow = sheet.addRow({
               ngay: formatDate(row.ngay),
-              bien_so_xe: row.bien_so_xe,
+              so_phieu: row.so_phieu,
               so_tan: row.so_tan,
               thanh_tien: Math.round(row.thanh_tien),
               thanh_toan: Math.round(row.thanh_toan),
@@ -173,7 +182,7 @@ export default function PersonalDebtTable({ customerName }: PersonalDebtTablePro
 
           const totalRow = sheet.addRow({
             ngay: 'Tong cong',
-            bien_so_xe: '',
+            so_phieu: '',
             so_tan: '',
             thanh_tien: '',
             thanh_toan: '',
@@ -191,7 +200,7 @@ export default function PersonalDebtTable({ customerName }: PersonalDebtTablePro
           });
 
           const safeName = normalizeFileName(displayName || 'KhachHang');
-          const fileName = `cong-no-${safeName}.xlsx`;
+          const fileName = `Cong_no_${safeName}_${todayStamp()}.xlsx`;
 
           const buffer = await workbook.xlsx.writeBuffer();
           const blob = new Blob([buffer], {
@@ -245,12 +254,12 @@ export default function PersonalDebtTable({ customerName }: PersonalDebtTablePro
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[600px]">
             <table className="min-w-full table-fixed text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-white shadow-sm">
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                   <th className="w-[14%] px-3 py-2.5 font-medium">Ngày</th>
-                  <th className="w-[16%] px-3 py-2.5 font-medium">Biển số</th>
+                  <th className="w-[16%] px-3 py-2.5 font-medium">Số phiếu</th>
                   <th className="w-[12%] px-3 py-2.5 text-right font-medium">Số tấn</th>
                   <th className="w-[19%] px-3 py-2.5 text-right font-medium">Thành tiền</th>
                   <th className="w-[19%] px-3 py-2.5 text-right font-medium">Đã thanh toán</th>
@@ -261,8 +270,8 @@ export default function PersonalDebtTable({ customerName }: PersonalDebtTablePro
                 {debtRows.map((row) => (
                   <tr key={row.id} className="border-b border-slate-100 last:border-0">
                     <td className="px-3 py-2.5 text-slate-700">{formatDate(row.ngay)}</td>
-                    <td className="px-3 py-2.5 text-slate-800">{row.bien_so_xe}</td>
-                    <td className="px-3 py-2.5 text-right text-slate-700">{row.so_tan.toLocaleString('vi-VN')}</td>
+                    <td className="px-3 py-2.5 text-slate-800">{row.so_phieu}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-700">{formatNumber(row.so_tan, 2)}</td>
                     <td className="px-3 py-2.5 text-right text-slate-700">{formatMoney(row.thanh_tien)}</td>
                     <td className="px-3 py-2.5 text-right text-emerald-700">{formatMoney(row.thanh_toan)}</td>
                     <td className="px-3 py-2.5 text-right font-semibold text-red-700">{formatMoney(row.con_lai)}</td>

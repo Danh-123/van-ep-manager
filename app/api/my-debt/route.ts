@@ -5,11 +5,10 @@ import { createClient } from '@/lib/supabase/server';
 type DebtRow = {
   id: number;
   ngay: string;
-  bien_so_xe: string;
+  so_phieu: string;
   so_tan: number;
   don_gia: number;
   thanh_tien: number;
-  cong_no: number;
   thanh_toan: number;
   con_lai: number;
   ten_khach_hang: string;
@@ -32,6 +31,39 @@ export async function GET() {
     return NextResponse.json({ error: 'Ban chua dang nhap' }, { status: 401 });
   }
 
+  const profileResult = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (profileResult.error || !profileResult.data) {
+    return NextResponse.json({ error: 'Khong the xac thuc quyen truy cap' }, { status: 403 });
+  }
+
+  if (profileResult.data.role !== 'Viewer') {
+    return NextResponse.json({ error: 'Chi Viewer moi duoc xem cong no ca nhan' }, { status: 403 });
+  }
+
+  const workerResult = await supabase.from('cong_nhan').select('id').eq('user_id', user.id).limit(1).maybeSingle();
+
+  if (workerResult.error) {
+    return NextResponse.json({ error: workerResult.error.message }, { status: 500 });
+  }
+
+  if (workerResult.data) {
+    return NextResponse.json(
+      {
+        linked: false,
+        userType: 'worker',
+        message: 'Tai khoan nay thuoc Cong nhan, vui long su dung man hinh Luong cua toi.',
+        data: [],
+        totalDebt: 0,
+      },
+      { status: 200 },
+    );
+  }
+
   const customerResult = await supabase
     .from('khach_hang')
     .select('id, ten_khach_hang')
@@ -48,6 +80,8 @@ export async function GET() {
       {
         data: [],
         linked: false,
+        userType: 'unknown',
+        totalDebt: 0,
         message: 'Tài khoản chưa được liên kết với khách hàng. Vui lòng liên hệ Admin.',
       },
       { status: 200 },
@@ -56,8 +90,9 @@ export async function GET() {
 
   const debtResult = await supabase
     .from('view_cong_no_ca_nhan')
-    .select('id, ngay, bien_so_xe, so_tan, don_gia, thanh_tien, cong_no, thanh_toan, con_lai, ten_khach_hang')
+    .select('id, ngay, so_phieu, so_tan, don_gia, thanh_tien, thanh_toan, con_lai, ten_khach_hang')
     .eq('user_id', user.id)
+    .gt('con_lai', 0)
     .order('ngay', { ascending: false })
     .order('id', { ascending: false });
 
@@ -68,11 +103,10 @@ export async function GET() {
   const rows: DebtRow[] = ((debtResult.data as Array<Record<string, unknown>> | null) ?? []).map((row) => ({
     id: toNumber(row.id),
     ngay: String(row.ngay ?? ''),
-    bien_so_xe: String(row.bien_so_xe ?? '-'),
+    so_phieu: String(row.so_phieu ?? '-'),
     so_tan: toNumber(row.so_tan),
     don_gia: toNumber(row.don_gia),
     thanh_tien: toNumber(row.thanh_tien),
-    cong_no: toNumber(row.cong_no),
     thanh_toan: toNumber(row.thanh_toan),
     con_lai: toNumber(row.con_lai),
     ten_khach_hang: String(
@@ -80,9 +114,13 @@ export async function GET() {
     ),
   }));
 
+  const totalDebt = rows.reduce((sum, row) => sum + row.con_lai, 0);
+
   return NextResponse.json({
     linked: true,
+    userType: 'customer',
     customerName: (customerResult.data as { ten_khach_hang: string }).ten_khach_hang,
     data: rows,
+    totalDebt,
   });
 }

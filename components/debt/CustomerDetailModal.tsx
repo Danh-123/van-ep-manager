@@ -5,6 +5,8 @@ import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { Download, Wallet, X } from 'lucide-react';
 
+import { formatNumber } from '@/lib/utils/format';
+
 type SummaryRow = {
   id: number;
   ma_khach_hang: string;
@@ -132,7 +134,7 @@ export default function CustomerDetailModal({
 
           <div className="max-h-[55vh] overflow-auto px-5 py-4">
             <table className="min-w-full table-fixed text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-white shadow-sm">
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                   <th className="w-[6%] px-3 py-2.5 font-medium">STT</th>
                   <th className="w-[12%] px-3 py-2.5 font-medium">Ngày cân</th>
@@ -166,7 +168,7 @@ export default function CustomerDetailModal({
                       <td className="px-3 py-2.5 text-slate-700">{index + 1}</td>
                       <td className="px-3 py-2.5 text-slate-700">{formatDate(row.ngay_can)}</td>
                       <td className="px-3 py-2.5 text-slate-800">{row.bien_so_xe}</td>
-                      <td className="px-3 py-2.5 text-right text-slate-700">{row.khoi_luong_tan.toLocaleString('vi-VN')}</td>
+                      <td className="px-3 py-2.5 text-right text-slate-700">{formatNumber(row.khoi_luong_tan, 2)}</td>
                       <td className="px-3 py-2.5 text-right text-slate-700">{formatMoney(row.thanh_tien)}</td>
                       <td className="px-3 py-2.5 text-right text-slate-700">{formatMoney(row.so_tien_da_tra)}</td>
                       <td className="px-3 py-2.5 text-right text-slate-700">{formatMoney(row.cong_no)}</td>

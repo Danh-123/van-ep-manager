@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server';
 
 type AppRole = 'Admin' | 'KeToan' | 'Viewer';
+type ViewerUserType = 'worker' | 'customer' | 'unknown';
 
 type SignInResult =
   | { success: true; redirectTo: string; role: AppRole }
@@ -16,12 +17,39 @@ type UserResult = {
   role: AppRole | null;
 };
 
-function resolveRedirectByRole(role: AppRole): string {
-  if (role === 'Viewer') {
-    return '/my-salary';
+function resolveRedirectByRole(role: AppRole, viewerType: ViewerUserType): string {
+  if (role !== 'Viewer') {
+    return '/dashboard';
   }
 
-  return '/dashboard';
+  if (viewerType === 'customer') {
+    return '/my-debt';
+  }
+
+  return '/my-salary';
+}
+
+async function resolveViewerUserType(userId: string): Promise<ViewerUserType> {
+  const supabase = await createClient();
+
+  const [workerResult, customerResult] = await Promise.all([
+    supabase.from('cong_nhan').select('id').eq('user_id', userId).limit(1).maybeSingle(),
+    supabase.from('khach_hang').select('id').eq('user_id', userId).limit(1).maybeSingle(),
+  ]);
+
+  if (workerResult.error || customerResult.error) {
+    return 'unknown';
+  }
+
+  if (workerResult.data) {
+    return 'worker';
+  }
+
+  if (customerResult.data) {
+    return 'customer';
+  }
+
+  return 'unknown';
 }
 
 export async function signIn(email: string, password: string): Promise<SignInResult> {
@@ -48,11 +76,12 @@ export async function signIn(email: string, password: string): Promise<SignInRes
   }
 
   const role = (profile?.role ?? 'Viewer') as AppRole;
+  const viewerType = role === 'Viewer' ? await resolveViewerUserType(data.user.id) : 'unknown';
 
   return {
     success: true,
     role,
-    redirectTo: resolveRedirectByRole(role),
+    redirectTo: resolveRedirectByRole(role, viewerType),
   };
 }
 

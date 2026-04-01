@@ -22,9 +22,9 @@ function formatMoney(value: number) {
 export default function DebtSummaryTable({ rows, loading = false, onViewDetail }: DebtSummaryTableProps) {
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-[600px]">
         <table className="min-w-full text-sm">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-white shadow-sm">
             <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
               <th className="px-4 py-3 font-medium">STT</th>
               <th className="px-4 py-3 font-medium">Mã khách hàng</th>

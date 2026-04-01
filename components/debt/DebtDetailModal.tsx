@@ -4,6 +4,8 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { format } from 'date-fns';
 import { X } from 'lucide-react';
 
+import { formatNumber } from '@/lib/utils/format';
+
 type DebtTicket = {
   id: number;
   customerId: number;
@@ -59,9 +61,9 @@ export default function DebtDetailModal({ open, onOpenChange, group, onPayment }
             </Dialog.Close>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="overflow-auto max-h-[600px] rounded-xl border border-slate-200">
             <table className="min-w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-white shadow-sm">
                 <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                   <th className="px-3 py-2">Ngày</th>
                   <th className="px-3 py-2">Biển số</th>
@@ -84,7 +86,7 @@ export default function DebtDetailModal({ open, onOpenChange, group, onPayment }
                     <tr key={ticket.id} className="border-b border-slate-100">
                       <td className="px-3 py-2 text-slate-700">{format(new Date(ticket.ngay), 'dd/MM/yyyy')}</td>
                       <td className="px-3 py-2 text-slate-700">{ticket.xeSo}</td>
-                      <td className="px-3 py-2 text-slate-700">{ticket.soTan.toLocaleString('vi-VN')}</td>
+                      <td className="px-3 py-2 text-slate-700">{formatNumber(ticket.soTan, 2)}</td>
                       <td className="px-3 py-2 text-emerald-700">{formatMoney(ticket.thanhTien)}</td>
                       <td className="px-3 py-2 text-blue-700">{formatMoney(ticket.daTra)}</td>
                       <td className="px-3 py-2 font-semibold text-red-600">{formatMoney(ticket.conNo)}</td>

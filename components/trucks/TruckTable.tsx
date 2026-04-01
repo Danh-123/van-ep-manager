@@ -2,6 +2,8 @@
 
 import { format } from 'date-fns';
 
+import { formatNumber } from '@/lib/utils/format';
+
 type TruckRow = {
   id: number;
   customerId: number | null;
@@ -56,9 +58,9 @@ export default function TruckTable({
   onCustomerClick,
 }: TruckTableProps) {
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-auto max-h-[600px]">
       <table className="min-w-[800px] lg:min-w-full table-fixed divide-y divide-slate-200 text-sm">
-        <thead className="bg-slate-50 text-left text-slate-700">
+        <thead className="sticky top-0 z-10 bg-white shadow-sm">
           <tr>
             <th className={`px-2 py-2 ${widths.stt}`}>STT</th>
             <th className={`px-2 py-2 ${widths.ngay}`}>Ngày</th>
@@ -98,7 +100,7 @@ export default function TruckTable({
                 <td className={`px-2 py-3 text-slate-700 ${widths.stt}`}>{index + 1}</td>
                 <td className={`px-2 py-3 text-slate-700 ${widths.ngay}`}>{format(new Date(row.ngay), 'dd/MM/yyyy')}</td>
                 <td className={`px-2 py-3 font-medium text-slate-800 ${widths.bienSo}`}>{row.bienSo}</td>
-                <td className={`px-2 py-3 text-slate-700 ${widths.soTan}`}>{row.soTan.toLocaleString('vi-VN')}</td>
+                <td className={`px-2 py-3 text-slate-700 ${widths.soTan}`}>{formatNumber(row.soTan, 2)}</td>
                 <td className={`px-2 py-3 text-slate-700 ${widths.donGia}`}>{formatCurrency(row.donGia)}</td>
                 <td className={`px-2 py-3 font-semibold text-blue-700 ${widths.thanhTien}`}>{formatCurrency(row.thanhTien)}</td>
                 <td className={`px-2 py-3 font-semibold text-amber-700 ${widths.congNo}`}>{formatCurrency(row.congNo)}</td>

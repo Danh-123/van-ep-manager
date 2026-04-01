@@ -13,6 +13,26 @@ export default async function MyDebtPage() {
     redirect('/login');
   }
 
+  const profileResult = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (!profileResult.data || profileResult.data.role !== 'Viewer') {
+    redirect('/dashboard');
+  }
+
+  const workerResult = await supabase.from('cong_nhan').select('id').eq('user_id', user.id).limit(1).maybeSingle();
+
+  if (workerResult.error) {
+    throw new Error(workerResult.error.message);
+  }
+
+  if (workerResult.data) {
+    redirect('/my-salary');
+  }
+
   const customerResult = await supabase
     .from('khach_hang')
     .select('id, ten_khach_hang')

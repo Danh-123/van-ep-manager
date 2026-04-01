@@ -62,6 +62,15 @@ type ActionResult<T> =
   | { success: true; data: T }
   | { success: false; error: string };
 
+type AppRole = 'Admin' | 'KeToan' | 'Viewer';
+type ViewerUserType = 'worker' | 'customer' | 'unknown';
+
+type AccessContext = {
+  userId: string;
+  role: AppRole;
+  userType: ViewerUserType;
+};
+
 function toNumber(value: unknown): number {
   if (typeof value === 'number') return value;
   if (typeof value === 'string') return Number(value);
@@ -79,6 +88,84 @@ function parseStatusFromMeta(metaText: unknown, fallbackPresent: boolean): strin
   }
 
   return fallbackPresent ? 'CoMat' : 'Nghi';
+}
+
+async function resolveAccessContext(): Promise<AccessContext> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw new Error('Ban chua dang nhap');
+  }
+
+  const profileResult = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (profileResult.error || !profileResult.data) {
+    throw new Error('Khong the xac thuc quyen truy cap');
+  }
+
+  const role = (profileResult.data.role ?? 'Viewer') as AppRole;
+  if (role !== 'Viewer') {
+    return {
+      userId: user.id,
+      role,
+      userType: 'unknown',
+    };
+  }
+
+  const [workerResult, customerResult] = await Promise.all([
+    supabase.from('cong_nhan').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
+    supabase.from('khach_hang').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
+  ]);
+
+  if (workerResult.error || customerResult.error) {
+    throw new Error(workerResult.error?.message ?? customerResult.error?.message ?? 'Khong the xac dinh loai tai khoan');
+  }
+
+  if (workerResult.data) {
+    return {
+      userId: user.id,
+      role,
+      userType: 'worker',
+    };
+  }
+
+  if (customerResult.data) {
+    return {
+      userId: user.id,
+      role,
+      userType: 'customer',
+    };
+  }
+
+  return {
+    userId: user.id,
+    role,
+    userType: 'unknown',
+  };
+}
+
+function canAccessAttendance(context: AccessContext) {
+  return context.role !== 'Viewer' || context.userType === 'worker';
+}
+
+function canAccessSalary(context: AccessContext) {
+  return context.role !== 'Viewer' || context.userType === 'worker';
+}
+
+function canAccessRevenue(context: AccessContext) {
+  return context.role !== 'Viewer';
+}
+
+function canAccessDebt(context: AccessContext) {
+  return context.role !== 'Viewer' || context.userType === 'customer';
 }
 
 function monthRange(startDate: string, endDate: string): Date[] {
@@ -109,15 +196,31 @@ export async function getAttendanceReport(
 
   try {
     const { startDate, endDate } = parsed.data;
+    const context = await resolveAccessContext();
+
+    if (!canAccessAttendance(context)) {
+      return {
+        success: false,
+        error: 'Ban khong co quyen xem bao cao cham cong',
+      };
+    }
+
     const supabase = await createClient();
 
+    const attendanceQuery = supabase
+      .from('cham_cong')
+      .select('ngay, trang_thai, ghi_chu, cong_nhan:cong_nhan_id(ho_ten, user_id)')
+      .gte('ngay', startDate)
+      .lte('ngay', endDate)
+      .order('ngay', { ascending: false });
+
+    const scopedAttendanceQuery =
+      context.role === 'Viewer' && context.userType === 'worker'
+        ? attendanceQuery.eq('cong_nhan.user_id', context.userId)
+        : attendanceQuery;
+
     const [attendanceRes, totalsRes] = await Promise.all([
-      supabase
-        .from('cham_cong')
-        .select('ngay, so_luong, thanh_tien, ghi_chu, cong_nhan:cong_nhan_id(ho_ten)')
-        .gte('ngay', startDate)
-        .lte('ngay', endDate)
-        .order('ngay', { ascending: false }),
+      scopedAttendanceQuery,
       supabase
         .from('tong_tien_cong_ngay')
         .select('ngay, tong_tien')
@@ -140,13 +243,12 @@ export async function getAttendanceReport(
     (attendanceRes.data ?? []).forEach((row) => {
       const typed = row as {
         ngay: string;
-        so_luong: number | string;
-        thanh_tien: number | string;
+        trang_thai?: string | null;
         ghi_chu?: string | null;
         cong_nhan?: { ho_ten?: string } | null;
       };
 
-      const presentFallback = toNumber(typed.so_luong) > 0;
+      const presentFallback = typed.trang_thai === 'CoMat' || typed.trang_thai === 'LamThem';
       const status = parseStatusFromMeta(typed.ghi_chu, presentFallback);
       const isPresent = status === 'CoMat' || status === 'LamThem';
 
@@ -175,7 +277,7 @@ export async function getAttendanceReport(
       existing.details.push({
         workerName: typed.cong_nhan?.ho_ten ?? 'Khong ro',
         status,
-        dailySalary: toNumber(typed.thanh_tien),
+        dailySalary: 0,
         note,
       });
 
@@ -205,6 +307,64 @@ export async function getSalaryReport(
 
   try {
     const { startDate, endDate } = parsed.data;
+    const context = await resolveAccessContext();
+
+    if (!canAccessSalary(context)) {
+      return {
+        success: false,
+        error: 'Ban khong co quyen xem bao cao luong',
+      };
+    }
+
+    if (context.role === 'Viewer') {
+      const supabase = await createClient();
+      const rangeStart = format(startOfMonth(new Date(startDate)), 'yyyy-MM-dd');
+      const endMonthStart = startOfMonth(new Date(endDate));
+      const rangeEndExclusive = format(
+        new Date(endMonthStart.getFullYear(), endMonthStart.getMonth() + 1, 1),
+        'yyyy-MM-dd',
+      );
+
+      const { data, error } = await supabase
+        .from('view_luong_ca_nhan')
+        .select('thang, luong_co_ban, thuong, phat, tong_luong, ho_ten')
+        .eq('user_id', context.userId)
+        .gte('thang', rangeStart)
+        .lt('thang', rangeEndExclusive)
+        .order('thang', { ascending: false });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      const rows: SalaryReportRow[] = ((data as Array<Record<string, unknown>> | null) ?? []).map((row) => {
+        const monthKey = String(row.thang ?? '').slice(0, 7);
+        return {
+          monthKey,
+          monthLabel: monthKey ? `${monthKey.slice(5, 7)}/${monthKey.slice(0, 4)}` : '-',
+          workerId: 0,
+          workerName: String(row.ho_ten ?? 'Ca nhan'),
+          baseSalary: toNumber(row.luong_co_ban),
+          bonus: toNumber(row.thuong),
+          penalty: toNumber(row.phat),
+          totalSalary: toNumber(row.tong_luong),
+        };
+      });
+
+      const monthlyTotals: Record<string, number> = {};
+      rows.forEach((row) => {
+        monthlyTotals[row.monthKey] = (monthlyTotals[row.monthKey] ?? 0) + row.totalSalary;
+      });
+
+      return {
+        success: true,
+        data: {
+          rows,
+          monthlyTotals,
+        },
+      };
+    }
+
     const months = monthRange(startDate, endDate);
 
     const rows: SalaryReportRow[] = [];
@@ -267,6 +427,15 @@ export async function getRevenueReport(
 
   try {
     const { startDate, endDate } = parsed.data;
+    const context = await resolveAccessContext();
+
+    if (!canAccessRevenue(context)) {
+      return {
+        success: false,
+        error: 'Ban khong co quyen xem bao cao doanh thu',
+      };
+    }
+
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -349,6 +518,76 @@ export async function getDebtReport(
 
   try {
     const { startDate, endDate } = parsed.data;
+    const context = await resolveAccessContext();
+
+    if (!canAccessDebt(context)) {
+      return {
+        success: false,
+        error: 'Ban khong co quyen xem bao cao cong no',
+      };
+    }
+
+    if (context.role === 'Viewer' && context.userType === 'customer') {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from('view_cong_no_ca_nhan')
+        .select('id, ngay, bien_so_xe, thanh_tien, thanh_toan, con_lai, ten_khach_hang')
+        .eq('user_id', context.userId)
+        .gte('ngay', startDate)
+        .lte('ngay', endDate)
+        .order('ngay', { ascending: false })
+        .order('id', { ascending: false });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      const groupsMap = new Map<string, DebtReportGroup>();
+      ((data as Array<Record<string, unknown>> | null) ?? []).forEach((row) => {
+        const amount = toNumber(row.thanh_tien);
+        const paid = Math.max(0, toNumber(row.thanh_toan));
+        const debt = Math.max(0, toNumber(row.con_lai));
+        const customer = String(row.ten_khach_hang ?? 'Khach hang');
+
+        const ticket: DebtReportTicket = {
+          id: toNumber(row.id),
+          date: String(row.ngay ?? ''),
+          truckNo: String(row.bien_so_xe ?? '-'),
+          amount,
+          paid,
+          debt,
+          createdAt: '',
+          lastPaymentDate: null,
+          overdue: false,
+        };
+
+        const existing = groupsMap.get(customer);
+        if (!existing) {
+          groupsMap.set(customer, {
+            customer,
+            totalDebt: debt,
+            overdue: false,
+            tickets: [ticket],
+          });
+          return;
+        }
+
+        existing.totalDebt += debt;
+        existing.tickets.push(ticket);
+      });
+
+      const groups = Array.from(groupsMap.values()).sort((a, b) => b.totalDebt - a.totalDebt);
+      const totalDebt = groups.reduce((sum, item) => sum + item.totalDebt, 0);
+
+      return {
+        success: true,
+        data: {
+          groups,
+          totalDebt,
+        },
+      };
+    }
+
     const supabase = await createClient();
 
     const [ticketRes, paymentRes] = await Promise.all([

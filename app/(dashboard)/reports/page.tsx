@@ -1,7 +1,6 @@
 'use client';
 
 import * as Dialog from '@radix-ui/react-dialog';
-import * as Tabs from '@radix-ui/react-tabs';
 import {
   endOfMonth,
   endOfWeek,
@@ -33,6 +32,8 @@ import {
   type RevenueReportRow,
   type SalaryReportRow,
 } from '@/app/(dashboard)/reports/actions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useRole, type AppRole } from '@/hooks/useRole';
 import {
   exportAttendanceReport,
   exportDebtReport,
@@ -54,7 +55,22 @@ function formatMoney(value: number) {
 }
 
 type QuickRange = 'today' | 'week' | 'month' | 'year' | 'custom';
-type ReportTab = 'attendance' | 'salary' | 'revenue' | 'debt';
+type ReportTab = 'overview' | 'attendance' | 'salary' | 'revenue' | 'debt' | 'workers';
+
+type ReportTabConfig = {
+  value: ReportTab;
+  label: string;
+  roles: AppRole[];
+};
+
+const REPORT_TABS: ReportTabConfig[] = [
+  { value: 'overview', label: 'Tong quan', roles: ['Admin', 'KeToan', 'Viewer'] },
+  { value: 'attendance', label: 'Cham cong', roles: ['Admin', 'KeToan'] },
+  { value: 'salary', label: 'Luong', roles: ['Admin', 'KeToan'] },
+  { value: 'revenue', label: 'Doanh thu', roles: ['Admin', 'KeToan'] },
+  { value: 'debt', label: 'Cong no', roles: ['Admin', 'KeToan'] },
+  { value: 'workers', label: 'Cong nhan', roles: ['Admin', 'KeToan'] },
+];
 
 function rangeFromQuick(quick: Exclude<QuickRange, 'custom'>) {
   const now = new Date();
@@ -96,7 +112,8 @@ function statusLabel(status: string) {
 
 export default function ReportsPage() {
   const mounted = useMounted();
-  const [activeTab, setActiveTab] = useState<ReportTab>('attendance');
+  const { role, isLoading: roleLoading } = useRole();
+  const [activeTab, setActiveTab] = useState<ReportTab>('overview');
   const [quickRange, setQuickRange] = useState<QuickRange>('month');
 
   const [startDate, setStartDate] = useState('');
@@ -119,6 +136,23 @@ export default function ReportsPage() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const filteredTabs = useMemo(() => {
+    const currentRole = role ?? 'Viewer';
+    return REPORT_TABS.filter((tab) => tab.roles.includes(currentRole));
+  }, [role]);
+
+  const activeTabOptions = useMemo(() => filteredTabs.map((tab) => tab.value), [filteredTabs]);
+
+  useEffect(() => {
+    if (filteredTabs.length === 0) {
+      return;
+    }
+
+    if (!activeTabOptions.includes(activeTab)) {
+      setActiveTab(filteredTabs[0].value);
+    }
+  }, [activeTab, activeTabOptions, filteredTabs]);
+
   const applyQuickRange = (nextRange: QuickRange) => {
     setQuickRange(nextRange);
     if (nextRange === 'custom') return;
@@ -136,9 +170,68 @@ export default function ReportsPage() {
   }, [mounted, startDate, endDate]);
 
   const loadData = useCallback(async () => {
+    if (roleLoading) return;
     if (!startDate || !endDate) return;
     setLoading(true);
     setError(null);
+
+    if (activeTab === 'overview') {
+      if (role === 'Viewer') {
+        const [salaryResult, debtResult] = await Promise.all([
+          getSalaryReport({ startDate, endDate }),
+          getDebtReport({ startDate, endDate }),
+        ]);
+
+        if (salaryResult.success) {
+          setSalaryRows(salaryResult.data.rows);
+          setSalaryMonthlyTotals(salaryResult.data.monthlyTotals);
+        } else {
+          setSalaryRows([]);
+          setSalaryMonthlyTotals({});
+        }
+
+        if (debtResult.success) {
+          setDebtGroups(debtResult.data.groups);
+          setDebtTotal(debtResult.data.totalDebt);
+        } else {
+          setDebtGroups([]);
+          setDebtTotal(0);
+        }
+
+        setLoading(false);
+        return;
+      }
+
+      const [attendanceResult, salaryResult, revenueResult, debtResult] = await Promise.all([
+        getAttendanceReport({ startDate, endDate }),
+        getSalaryReport({ startDate, endDate }),
+        getRevenueReport({ startDate, endDate }),
+        getDebtReport({ startDate, endDate }),
+      ]);
+
+      if (attendanceResult.success) {
+        setAttendanceRows(attendanceResult.data);
+      }
+
+      if (salaryResult.success) {
+        setSalaryRows(salaryResult.data.rows);
+        setSalaryMonthlyTotals(salaryResult.data.monthlyTotals);
+      }
+
+      if (revenueResult.success) {
+        setRevenueRows(revenueResult.data.rows);
+        setRevenueDaily(revenueResult.data.daily);
+        setRevenueTotals(revenueResult.data.totals);
+      }
+
+      if (debtResult.success) {
+        setDebtGroups(debtResult.data.groups);
+        setDebtTotal(debtResult.data.totalDebt);
+      }
+
+      setLoading(false);
+      return;
+    }
 
     if (activeTab === 'attendance') {
       const result = await getAttendanceReport({ startDate, endDate });
@@ -148,6 +241,20 @@ export default function ReportsPage() {
         setLoading(false);
         return;
       }
+      setAttendanceRows(result.data);
+      setLoading(false);
+      return;
+    }
+
+    if (activeTab === 'workers') {
+      const result = await getAttendanceReport({ startDate, endDate });
+      if (!result.success) {
+        setError(result.error);
+        setAttendanceRows([]);
+        setLoading(false);
+        return;
+      }
+
       setAttendanceRows(result.data);
       setLoading(false);
       return;
@@ -197,7 +304,7 @@ export default function ReportsPage() {
     setDebtGroups(result.data.groups);
     setDebtTotal(result.data.totalDebt);
     setLoading(false);
-  }, [activeTab, endDate, startDate]);
+  }, [activeTab, endDate, role, roleLoading, startDate]);
 
   useEffect(() => {
     void loadData();
@@ -208,6 +315,11 @@ export default function ReportsPage() {
       const range = { startDate, endDate };
 
       if (activeTab === 'attendance') {
+        await exportAttendanceReport(attendanceRows, range);
+        return;
+      }
+
+      if (activeTab === 'workers') {
         await exportAttendanceReport(attendanceRows, range);
         return;
       }
@@ -237,7 +349,42 @@ export default function ReportsPage() {
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [salaryRows]);
 
-  if (!mounted) {
+  const workerSummaryRows = useMemo(() => {
+    const summary = new Map<string, { workerName: string; present: number; absent: number }>();
+
+    attendanceRows.forEach((day) => {
+      day.details.forEach((detail) => {
+        const current = summary.get(detail.workerName) ?? {
+          workerName: detail.workerName,
+          present: 0,
+          absent: 0,
+        };
+
+        if (detail.status === 'CoMat' || detail.status === 'LamThem') {
+          current.present += 1;
+        } else {
+          current.absent += 1;
+        }
+
+        summary.set(detail.workerName, current);
+      });
+    });
+
+    return Array.from(summary.values()).sort((a, b) => a.workerName.localeCompare(b.workerName));
+  }, [attendanceRows]);
+
+  const overviewStats = useMemo(() => {
+    const attendanceDays = attendanceRows.length;
+    const salaryTotal = Object.values(salaryMonthlyTotals).reduce((sum, value) => sum + value, 0);
+    return {
+      attendanceDays,
+      salaryTotal,
+      revenueTotal: revenueTotals.revenue,
+      debtTotal,
+    };
+  }, [attendanceRows.length, debtTotal, revenueTotals.revenue, salaryMonthlyTotals]);
+
+  if (!mounted || roleLoading) {
     return (
       <div className="space-y-4">
         <div className="h-24 animate-pulse rounded-2xl bg-slate-100" />
@@ -329,39 +476,51 @@ export default function ReportsPage() {
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
 
-      <Tabs.Root value={activeTab} onValueChange={(value) => setActiveTab(value as ReportTab)}>
-        <Tabs.List className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm md:grid-cols-4">
-          <Tabs.Trigger
-            value="attendance"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-emerald-50 data-[state=active]:text-[#1B5E20]"
-          >
-            Bao cao cham cong
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="salary"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-emerald-50 data-[state=active]:text-[#1B5E20]"
-          >
-            Bao cao luong
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="revenue"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-emerald-50 data-[state=active]:text-[#1B5E20]"
-          >
-            Bao cao doanh thu
-          </Tabs.Trigger>
-          <Tabs.Trigger
-            value="debt"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-emerald-50 data-[state=active]:text-[#1B5E20]"
-          >
-            Bao cao cong no
-          </Tabs.Trigger>
-        </Tabs.List>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ReportTab)}>
+        <TabsList className={`grid w-full gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm ${filteredTabs.length <= 2 ? 'grid-cols-2' : filteredTabs.length <= 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-6'}`}>
+          {filteredTabs.map((tab) => (
+            <TabsTrigger
+              key={tab.value}
+              value={tab.value}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-emerald-50 data-[state=active]:text-[#1B5E20]"
+            >
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-        <Tabs.Content value="attendance" className="mt-4">
+        <TabsContent value="overview" className="mt-4 space-y-4">
+          <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm text-slate-500">Ngay cham cong</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">{overviewStats.attendanceDays.toLocaleString('vi-VN')}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm text-slate-500">Tong luong</p>
+              <p className="mt-1 text-xl font-semibold text-[#1B5E20]">{formatMoney(overviewStats.salaryTotal)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm text-slate-500">Tong doanh thu</p>
+              <p className="mt-1 text-xl font-semibold text-blue-700">{formatMoney(overviewStats.revenueTotal)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm text-slate-500">Tong cong no</p>
+              <p className="mt-1 text-xl font-semibold text-red-600">{formatMoney(overviewStats.debtTotal)}</p>
+            </div>
+          </section>
+
+          {role === 'Viewer' && (
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-[#1B5E20]">
+              Ban dang o che do Viewer. Chi hien thi bao cao tong quan phu hop voi quyen hien tai.
+            </section>
+          )}
+        </TabsContent>
+
+        <TabsContent value="attendance" className="mt-4">
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[600px]">
               <table className="min-w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-white shadow-sm">
                   <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                     <th className="px-4 py-3 font-medium">Ngay</th>
                     <th className="px-4 py-3 font-medium">So cong nhan di lam</th>
@@ -411,13 +570,13 @@ export default function ReportsPage() {
               </table>
             </div>
           </section>
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="salary" className="mt-4">
+        <TabsContent value="salary" className="mt-4">
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[600px]">
               <table className="min-w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-white shadow-sm">
                   <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                     <th className="px-4 py-3 font-medium">Thang</th>
                     <th className="px-4 py-3 font-medium">Cong nhan</th>
@@ -470,9 +629,9 @@ export default function ReportsPage() {
               </table>
             </div>
           </section>
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="revenue" className="mt-4 space-y-4">
+        <TabsContent value="revenue" className="mt-4 space-y-4">
           <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-sm text-slate-500">Tong doanh thu</p>
@@ -507,9 +666,9 @@ export default function ReportsPage() {
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[600px]">
               <table className="min-w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-white shadow-sm">
                   <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                     <th className="px-4 py-3 font-medium">Ngay</th>
                     <th className="px-4 py-3 font-medium">Xe so</th>
@@ -548,16 +707,16 @@ export default function ReportsPage() {
               </table>
             </div>
           </section>
-        </Tabs.Content>
+        </TabsContent>
 
-        <Tabs.Content value="debt" className="mt-4">
+        <TabsContent value="debt" className="mt-4">
           <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 px-4 py-3 text-sm text-slate-600">
               Tong no phai thu: <span className="font-semibold text-red-600">{formatMoney(debtTotal)}</span>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-auto max-h-[600px]">
               <table className="min-w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-white shadow-sm">
                   <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
                     <th className="px-4 py-3 font-medium">Khach hang</th>
                     <th className="px-4 py-3 font-medium">Tong no</th>
@@ -606,9 +765,9 @@ export default function ReportsPage() {
                         ? [
                             <tr key={`${group.customer}-detail`} className="border-b border-slate-100 bg-slate-50/50">
                               <td colSpan={3} className="px-4 py-3">
-                                <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                                <div className="overflow-auto max-h-[600px] rounded-lg border border-slate-200 bg-white">
                                   <table className="min-w-full text-left text-xs">
-                                    <thead>
+                                    <thead className="sticky top-0 z-10 bg-white shadow-sm">
                                       <tr className="border-b border-slate-200 bg-slate-50 text-slate-500">
                                         <th className="px-3 py-2 font-medium">Ngay</th>
                                         <th className="px-3 py-2 font-medium">Xe so</th>
@@ -644,8 +803,49 @@ export default function ReportsPage() {
               </table>
             </div>
           </section>
-        </Tabs.Content>
-      </Tabs.Root>
+        </TabsContent>
+
+        <TabsContent value="workers" className="mt-4">
+          <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-auto max-h-[600px]">
+              <table className="min-w-full text-sm">
+                <thead className="sticky top-0 z-10 bg-white shadow-sm">
+                  <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-600">
+                    <th className="px-4 py-3 font-medium">Cong nhan</th>
+                    <th className="px-4 py-3 font-medium">Ngay co mat</th>
+                    <th className="px-4 py-3 font-medium">Ngay vang</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    Array.from({ length: 6 }).map((_, idx) => (
+                      <tr key={idx} className="border-b border-slate-100">
+                        <td className="px-4 py-3" colSpan={3}>
+                          <div className="h-6 animate-pulse rounded bg-slate-100" />
+                        </td>
+                      </tr>
+                    ))
+                  ) : workerSummaryRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="px-4 py-8 text-center text-slate-500">
+                        Khong co du lieu cong nhan.
+                      </td>
+                    </tr>
+                  ) : (
+                    workerSummaryRows.map((row) => (
+                      <tr key={row.workerName} className="border-b border-slate-100 last:border-0">
+                        <td className="px-4 py-3 font-medium text-slate-800">{row.workerName}</td>
+                        <td className="px-4 py-3 text-emerald-700">{row.present.toLocaleString('vi-VN')}</td>
+                        <td className="px-4 py-3 text-red-600">{row.absent.toLocaleString('vi-VN')}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </TabsContent>
+      </Tabs>
 
       <Dialog.Root open={attendanceDetailOpen} onOpenChange={setAttendanceDetailOpen}>
         <Dialog.Portal>
@@ -667,7 +867,7 @@ export default function ReportsPage() {
             ) : (
               <div className="max-h-[60vh] overflow-auto rounded-xl border border-slate-200">
                 <table className="min-w-full text-left text-sm">
-                  <thead>
+                  <thead className="sticky top-0 z-10 bg-white shadow-sm">
                     <tr className="border-b border-slate-200 bg-slate-50 text-slate-600">
                       <th className="px-3 py-2 font-medium">Cong nhan</th>
                       <th className="px-3 py-2 font-medium">Trang thai</th>
