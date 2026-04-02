@@ -19,8 +19,34 @@ export default async function MyDebtPage() {
     .eq('id', user.id)
     .maybeSingle();
 
-  if (!profileResult.data || profileResult.data.role !== 'Viewer') {
-    redirect('/dashboard');
+  if (profileResult.error) {
+    throw new Error(profileResult.error.message);
+  }
+
+  if (!profileResult.data) {
+    return (
+      <div className="space-y-5">
+        <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h1 className="text-2xl font-semibold text-slate-900">Công nợ của tôi</h1>
+          <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Không tìm thấy hồ sơ người dùng. Vui lòng liên hệ Admin để kiểm tra dữ liệu.
+          </p>
+        </header>
+      </div>
+    );
+  }
+
+  if (profileResult.data.role !== 'Viewer') {
+    return (
+      <div className="space-y-5">
+        <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h1 className="text-2xl font-semibold text-slate-900">Công nợ của tôi</h1>
+          <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Tài khoản này không phải Viewer nên không thể xem trang công nợ cá nhân.
+          </p>
+        </header>
+      </div>
+    );
   }
 
   const workerResult = await supabase.from('cong_nhan').select('id').eq('user_id', user.id).limit(1).maybeSingle();
