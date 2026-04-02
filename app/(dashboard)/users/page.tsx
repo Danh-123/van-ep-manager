@@ -18,12 +18,12 @@ export default function UsersPage() {
       const supabase = await createClient();
 
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!mounted) return;
 
-      if (!user) {
+      if (!session?.user) {
         router.push('/login');
         return;
       }
@@ -31,7 +31,7 @@ export default function UsersPage() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', user.id)
+        .eq('id', session.user.id)
         .maybeSingle();
 
       if (!profile || profile.role !== 'Admin') {
@@ -39,7 +39,7 @@ export default function UsersPage() {
         return;
       }
 
-      setCurrentUserId(user.id);
+      setCurrentUserId(session.user.id);
       setIsAuthorized(true);
     }
 

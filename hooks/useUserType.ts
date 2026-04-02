@@ -30,11 +30,10 @@ export function useUserType(enabled = true): UseUserTypeResult {
       try {
         const supabase = createClient();
         const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+          data: { session },
+        } = await supabase.auth.getSession();
 
-        if (userError || !user) {
+        if (!session?.user) {
           if (!cancelled) {
             setUserType('unknown');
             setIsLoading(false);
@@ -42,9 +41,11 @@ export function useUserType(enabled = true): UseUserTypeResult {
           return;
         }
 
+        const userId = session.user.id;
+
         const [workerResult, customerResult] = await Promise.all([
-          supabase.from('cong_nhan').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
-          supabase.from('khach_hang').select('id').eq('user_id', user.id).limit(1).maybeSingle(),
+          supabase.from('cong_nhan').select('id').eq('user_id', userId).limit(1).maybeSingle(),
+          supabase.from('khach_hang').select('id').eq('user_id', userId).limit(1).maybeSingle(),
         ]);
 
         if (cancelled) {

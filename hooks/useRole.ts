@@ -24,18 +24,17 @@ export function useRole() {
     queryFn: async () => {
       const supabase = createClient();
       const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (userError || !user) {
+      if (!session?.user) {
         return { role: 'Viewer' };
       }
 
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', user.id)
+        .eq('id', session.user.id)
         .maybeSingle();
 
       return {
