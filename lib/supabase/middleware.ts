@@ -41,8 +41,6 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-
   if (user) {
     requestHeaders.set('x-user-id', user.id);
     if (user.email) {
@@ -53,10 +51,6 @@ export async function updateSession(request: NextRequest) {
       requestHeaders.set('x-user-role', userRole);
     }
   }
-
-  const isLoginRoute = pathname === '/login' || pathname.startsWith('/login/');
-  const isRegisterRoute = pathname === '/register' || pathname.startsWith('/register/');
-  const isAuthRoute = isLoginRoute || isRegisterRoute;
 
   let resolvedRole = '';
 
@@ -70,48 +64,6 @@ export async function updateSession(request: NextRequest) {
     resolvedRole = (profile?.role ?? '') as string;
     if (resolvedRole) {
       requestHeaders.set('x-user-role', resolvedRole);
-    }
-  }
-
-  if (!user && !isAuthRoute) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/login';
-    loginUrl.searchParams.set('redirectedFrom', pathname);
-
-    const redirectResponse = NextResponse.redirect(loginUrl);
-    response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie);
-    });
-
-    return redirectResponse;
-  }
-
-  if (user && isAuthRoute) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = resolvedRole === 'Viewer' ? '/my-salary' : '/dashboard';
-
-    const redirectResponse = NextResponse.redirect(redirectUrl);
-    response.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie);
-    });
-
-    return redirectResponse;
-  }
-
-  if (user && resolvedRole === 'Viewer') {
-    const viewerAllowedPrefixes = ['/my-salary', '/my-attendance', '/my-debt'];
-    const isAllowed = viewerAllowedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-
-    if (!isAllowed) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = '/my-salary';
-
-      const redirectResponse = NextResponse.redirect(redirectUrl);
-      response.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie);
-      });
-
-      return redirectResponse;
     }
   }
 
