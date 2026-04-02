@@ -12,14 +12,6 @@
   "regions": [
     "sin1"
   ],
-  "functions": {
-    "api/**/*.ts": {
-      "maxDuration": 30
-    },
-    "api/auth/**/*.ts": {
-      "maxDuration": 60
-    }
-  },
   "redirects": [
     {
       "source": "/login",
