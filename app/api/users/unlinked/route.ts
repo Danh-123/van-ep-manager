@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
 type AppUser = {
@@ -43,6 +43,8 @@ export async function GET() {
   if (!access.ok) {
     return NextResponse.json({ error: access.error }, { status: access.status });
   }
+
+  const supabaseAdmin = createAdminClient();
 
   try {
     const users: AppUser[] = [];

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { supabaseAdmin } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import {
   LinkStatus,
@@ -119,6 +119,8 @@ export async function GET(request: NextRequest) {
   if (!access.ok) {
     return NextResponse.json({ success: false, error: access.error }, { status: access.status });
   }
+
+  const supabaseAdmin = createAdminClient();
 
   try {
     // Parse query parameters
