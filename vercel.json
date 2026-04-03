@@ -12,13 +12,6 @@
   "regions": [
     "sin1"
   ],
-  "redirects": [
-    {
-      "source": "/login",
-      "destination": "/",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
       "source": "/health",
