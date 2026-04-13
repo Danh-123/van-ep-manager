@@ -9,9 +9,9 @@ import type { DebtCalculatedRow } from '@/lib/trucks/debtCalculator';
 
 type EditTicketValues = {
   ngay: string;
-  bienSo: string;
   soTan: string;
   donGia: string;
+  congNoDau: string;
   thanhToan: string;
   khachHang: string;
   ghiChu: string;
@@ -26,9 +26,9 @@ type EditTicketModalProps = {
 
 const defaultForm: EditTicketValues = {
   ngay: '',
-  bienSo: '',
   soTan: '',
   donGia: '',
+  congNoDau: '',
   thanhToan: '',
   khachHang: '',
   ghiChu: '',
@@ -52,9 +52,9 @@ export default function EditTicketModal({ open, onOpenChange, ticket, onSaved }:
 
     setForm({
       ngay: ticket.ngay,
-      bienSo: ticket.bienSo,
       soTan: String(ticket.soTan),
       donGia: String(ticket.donGia),
+      congNoDau: String(ticket.congNoDau ?? 0),
       thanhToan: String(ticket.thanhToan),
       khachHang: ticket.khachHang,
       ghiChu: ticket.ghiChu,
@@ -91,9 +91,9 @@ export default function EditTicketModal({ open, onOpenChange, ticket, onSaved }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ngay: form.ngay,
-          bienSo: form.bienSo,
           soTan: Number(form.soTan),
           donGia: Number(form.donGia),
+            congNoDau: Number(form.congNoDau || 0),
           thanhToan: Number(form.thanhToan || 0),
           khachHang: form.khachHang,
           ghiChu: form.ghiChu,
@@ -147,18 +147,6 @@ export default function EditTicketModal({ open, onOpenChange, ticket, onSaved }:
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="bienSo">Biển số xe</label>
-                <input
-                  id="bienSo"
-                  type="text"
-                  value={form.bienSo}
-                  onChange={(event) => setForm((prev) => ({ ...prev, bienSo: event.target.value }))}
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-                  required
-                />
-              </div>
-
-              <div>
                 <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="soTan">Số tấn</label>
                 <input
                   id="soTan"
@@ -178,11 +166,24 @@ export default function EditTicketModal({ open, onOpenChange, ticket, onSaved }:
                   id="donGia"
                   type="number"
                   min="0"
-                  step="1000"
+                  step="any"
                   value={form.donGia}
                   onChange={(event) => setForm((prev) => ({ ...prev, donGia: event.target.value }))}
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="congNoDau">Công nợ đầu</label>
+                <input
+                  id="congNoDau"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={form.congNoDau}
+                  onChange={(event) => setForm((prev) => ({ ...prev, congNoDau: event.target.value }))}
+                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
                 />
               </div>
 
@@ -192,7 +193,7 @@ export default function EditTicketModal({ open, onOpenChange, ticket, onSaved }:
                   id="thanhToan"
                   type="number"
                   min="0"
-                  step="1000"
+                  step="any"
                   value={form.thanhToan}
                   onChange={(event) => setForm((prev) => ({ ...prev, thanhToan: event.target.value }))}
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"

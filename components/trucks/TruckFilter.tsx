@@ -3,7 +3,6 @@
 export type TruckFilterValues = {
   fromDate: string;
   toDate: string;
-  plate: string;
   customer: string;
 };
 
@@ -18,7 +17,7 @@ type TruckFilterProps = {
 export default function TruckFilter({ values, loading = false, onChange, onApply, onReset }: TruckFilterProps) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-4">
         <div className="space-y-1">
           <label className="text-xs font-medium text-slate-600">Từ ngày</label>
           <input
@@ -35,17 +34,6 @@ export default function TruckFilter({ values, loading = false, onChange, onApply
             type="date"
             value={values.toDate}
             onChange={(event) => onChange({ ...values, toDate: event.target.value })}
-            className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-          />
-        </div>
-
-        <div className="space-y-1 col-span-2 md:col-span-1">
-          <label className="text-xs font-medium text-slate-600">Biển số xe</label>
-          <input
-            type="text"
-            value={values.plate}
-            onChange={(event) => onChange({ ...values, plate: event.target.value })}
-            placeholder="Ví dụ: 51C"
             className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
           />
         </div>

@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS phieu_can (
   khoi_luong_tan DECIMAL(15,2) NOT NULL CHECK (khoi_luong_tan > 0),
   don_gia_ap_dung DECIMAL(15,2) NOT NULL CHECK (don_gia_ap_dung > 0),
   thanh_tien DECIMAL(15,2) GENERATED ALWAYS AS (khoi_luong_tan * don_gia_ap_dung) STORED,
+  cong_no_dau DECIMAL(15,2) DEFAULT 0,
   so_tien_da_tra DECIMAL(15,2) DEFAULT 0,
   cong_no DECIMAL(15,2) DEFAULT 0,
   con_lai DECIMAL(15,2) GENERATED ALWAYS AS (cong_no - so_tien_da_tra) STORED,
@@ -223,9 +224,9 @@ BEGIN
   LIMIT 1;
   
   IF last_con_lai IS NULL THEN
-    NEW.cong_no := NEW.thanh_tien;
+    NEW.cong_no := COALESCE(NEW.cong_no_dau, 0) + NEW.thanh_tien;
   ELSE
-    NEW.cong_no := NEW.thanh_tien + last_con_lai;
+    NEW.cong_no := COALESCE(NEW.cong_no_dau, 0) + NEW.thanh_tien + last_con_lai;
   END IF;
   
   RETURN NEW;
@@ -234,7 +235,7 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS trigger_calculate_cong_no ON phieu_can;
 CREATE TRIGGER trigger_calculate_cong_no
-  BEFORE INSERT ON phieu_can
+  BEFORE INSERT OR UPDATE ON phieu_can
   FOR EACH ROW
   EXECUTE FUNCTION calculate_cong_no_by_customer();
 

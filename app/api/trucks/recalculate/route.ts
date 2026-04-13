@@ -22,7 +22,7 @@ async function ensureManagerAccess() {
   }
 
   if (profileResult.data.role === 'Viewer') {
-    return { ok: false as const, status: 403, error: 'Bạn không có quyền truy cập trang xe hàng' };
+    return { ok: false as const, status: 403, error: 'Bạn không có quyền truy cập trang mua hàng' };
   }
 
   return {

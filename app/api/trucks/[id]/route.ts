@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase/server';
 
 const updateTicketSchema = z.object({
   ngayCan: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Ngày không hợp lệ (yyyy-MM-dd)'),
-  bienSo: z.string().trim().min(3, 'Biển số xe là bắt buộc'),
   soTan: z.number().positive('Số tấn phải lớn hơn 0'),
   donGia: z.number().positive('Đơn giá phải lớn hơn 0'),
+  congNoDau: z.number().min(0, 'Công nợ đầu không được âm').optional(),
   thanhToan: z.number().min(0, 'Thanh toán không được âm'),
   khachHangId: z.number().int().positive().optional(),
   khachHang: z.string().trim().min(2).optional(),
@@ -22,6 +22,15 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function toOptionalNumber(value: unknown) {
+  if (value === null || value === undefined || value === '') {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function normalizeUpdatePayload(body: unknown) {
   const typed = (body ?? {}) as Record<string, unknown>;
 
@@ -31,12 +40,9 @@ function normalizeUpdatePayload(body: unknown) {
       (typed.ngayCan as string | undefined) ??
       (typed.ngay as string | undefined) ??
       '',
-    bienSo:
-      (typed.bien_so_xe as string | undefined) ??
-      (typed.bienSo as string | undefined) ??
-      '',
     soTan: toNumber((typed.khoi_luong_tan as unknown) ?? typed.soTan),
     donGia: toNumber((typed.don_gia_ap_dung as unknown) ?? typed.donGia),
+    congNoDau: toOptionalNumber((typed.cong_no_dau as unknown) ?? typed.congNoDau),
     thanhToan: toNumber((typed.so_tien_da_tra as unknown) ?? typed.thanhToan),
     khachHangId: toNumber((typed.khach_hang_id as unknown) ?? typed.khachHangId) || undefined,
     khachHang:
@@ -69,40 +75,13 @@ async function ensureManagerAccess() {
   }
 
   if (profileResult.data.role === 'Viewer') {
-    return { ok: false as const, status: 403, error: 'Bạn không có quyền truy cập trang xe hàng' };
+    return { ok: false as const, status: 403, error: 'Bạn không có quyền truy cập trang mua hàng' };
   }
 
   return {
     ok: true as const,
     supabase,
   };
-}
-
-async function getOrCreateTruckId(supabase: Awaited<ReturnType<typeof createClient>>, bienSo: string) {
-  const existing = await supabase.from('xe_hang').select('id').ilike('bien_so', bienSo).maybeSingle();
-
-  if (existing.error) {
-    throw new Error(existing.error.message);
-  }
-
-  if (existing.data) {
-    return (existing.data as { id: number }).id;
-  }
-
-  const inserted = await supabase
-    .from('xe_hang')
-    .insert({
-      bien_so: bienSo,
-      is_active: true,
-    })
-    .select('id')
-    .single();
-
-  if (inserted.error) {
-    throw new Error(inserted.error.message);
-  }
-
-  return (inserted.data as { id: number }).id;
 }
 
 async function resolveCustomerById(supabase: Awaited<ReturnType<typeof createClient>>, khachHangId: number) {
@@ -121,12 +100,17 @@ async function resolveCustomerById(supabase: Awaited<ReturnType<typeof createCli
   }
 
   const typed = result.data as Record<string, unknown>;
+  const customerType = (typed.loai_khach_hang as string | undefined) ?? 'mua';
   const name =
     (typed.ten as string | undefined) ??
     (typed.ten_khach_hang as string | undefined) ??
     (typed.name as string | undefined) ??
     (typed.ho_ten as string | undefined) ??
     '';
+
+  if (customerType !== 'mua') {
+    throw new Error('Chỉ được chọn khách hàng loại Mua cho phiếu mua hàng');
+  }
 
   if (!name.trim()) {
     throw new Error('Khách hàng không hợp lệ');
@@ -166,7 +150,6 @@ export async function PUT(request: NextRequest, context: RouteParams) {
   }
 
   try {
-    const truckId = await getOrCreateTruckId(access.supabase, parsed.data.bienSo);
     const customer = parsed.data.khachHangId
       ? await resolveCustomerById(access.supabase, parsed.data.khachHangId)
       : { id: null, name: parsed.data.khachHang ?? 'Khách lẻ' };
@@ -177,9 +160,9 @@ export async function PUT(request: NextRequest, context: RouteParams) {
       .from('phieu_can')
       .update({
         ngay_can: parsed.data.ngayCan,
-        xe_hang_id: truckId,
         khoi_luong_tan: parsed.data.soTan,
         don_gia_ap_dung: parsed.data.donGia,
+        cong_no_dau: Math.max(0, parsed.data.congNoDau ?? 0),
         so_tien_da_tra: safePay,
         khach_hang_id: customer.id,
         khach_hang: customer.name,

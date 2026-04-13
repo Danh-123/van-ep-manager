@@ -40,8 +40,8 @@ const QUICK_GUIDES = [
     steps: [
       {
         number: 1,
-        action: 'Vào trang Xe hàng / Phiếu cân',
-        details: 'Từ menu Tống quan → Xe hàng',
+        action: 'Vào trang Mua hàng / Phiếu cân',
+        details: 'Từ menu Tống quan → Mua hàng',
       },
       {
         number: 2,
@@ -51,12 +51,12 @@ const QUICK_GUIDES = [
       {
         number: 3,
         action: 'Nhập thông tin phiếu',
-        details: 'Chọn khách hàng, nhập ngày, loại gỗ, số tấn, đơn giá, tiền đã trả',
+        details: 'Chọn khách hàng, nhập ngày, số tấn, đơn giá, công nợ đầu và tiền đã trả',
       },
       {
         number: 4,
         action: 'Kiểm tra công nợ tích lũy',
-        details: 'Hệ thống tính: Công nợ = (Số tấn × Đơn giá) + Công nợ cũ - Tiền đã trả',
+        details: 'Hệ thống tính: Công nợ = Công nợ đầu + (Số tấn × Đơn giá) + Công nợ cũ - Tiền đã trả',
       },
       {
         number: 5,

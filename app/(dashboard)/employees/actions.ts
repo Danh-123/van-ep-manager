@@ -332,25 +332,8 @@ export async function deleteEmployee(id: number): Promise<ActionResult<{ id: num
   }
 
   const supabase = await createClient();
-  const attendanceCheck = await supabase
-    .from('cham_cong')
-    .select('id', { count: 'exact', head: true })
-    .eq('cong_nhan_id', id);
 
-  if (attendanceCheck.error) {
-    return {
-      success: false,
-      error: attendanceCheck.error.message,
-    };
-  }
-
-  if ((attendanceCheck.count ?? 0) > 0) {
-    return {
-      success: false,
-      error: 'Khong the xoa cong nhan da co du lieu cham cong.',
-    };
-  }
-
+  // DELETE CÓ CASCADE - Sẽ tự động xóa chấm công + lương tháng
   const { error } = await supabase.from('cong_nhan').delete().eq('id', id);
 
   if (error) {

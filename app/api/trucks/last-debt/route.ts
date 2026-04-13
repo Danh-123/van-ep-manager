@@ -34,7 +34,7 @@ async function ensureAccess() {
   }
 
   if (profile.data.role === 'Viewer') {
-    return { ok: false as const, status: 403, error: 'Ban khong co quyen truy cap trang xe hang' };
+    return { ok: false as const, status: 403, error: 'Ban khong co quyen truy cap trang mua hang' };
   }
 
   return { ok: true as const, supabase };
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   try {
     const result = await access.supabase
       .from('phieu_can')
-      .select('id, ngay_can, thanh_tien, so_tien_da_tra, customer:khach_hang_id(*)')
+      .select('id, ngay_can, thanh_tien, cong_no_dau, so_tien_da_tra, customer:khach_hang_id(*)')
       .eq('khach_hang_id', customerId)
       .order('ngay_can', { ascending: true })
       .order('id', { ascending: true });
@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
     const rows = (result.data ?? []) as Array<{
       customer?: Record<string, unknown> | Array<Record<string, unknown>> | null;
       thanh_tien: number | string;
+      cong_no_dau: number | string | null;
       so_tien_da_tra: number | string | null;
     }>;
 
@@ -77,8 +78,9 @@ export async function GET(request: NextRequest) {
     let remain = 0;
     rows.forEach((row) => {
       const thanhTien = Math.max(0, toNumber(row.thanh_tien));
+      const congNoDau = Math.max(0, toNumber(row.cong_no_dau));
       const daTra = Math.max(0, toNumber(row.so_tien_da_tra));
-      const congNo = thanhTien + remain;
+      const congNo = congNoDau + thanhTien + remain;
       remain = Math.max(0, congNo - daTra);
     });
 

@@ -10,9 +10,9 @@ const createTicketSchema = z.object({
     .trim()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
-  bienSo: z.string().trim().min(3, 'Biển số xe là bắt buộc'),
   soTan: z.number().positive('Số tấn phải lớn hơn 0'),
   donGia: z.number().positive('Đơn giá phải lớn hơn 0'),
+  congNoDau: z.number().min(0, 'Công nợ đầu không được âm').optional(),
   thanhToan: z.number().min(0, 'Thanh toán không được âm'),
   khachHangId: z.number().int().positive('Khách hàng là bắt buộc'),
   ghiChu: z.string().trim().optional().or(z.literal('')),
@@ -20,9 +20,9 @@ const createTicketSchema = z.object({
 
 const updateTicketSchema = z.object({
   id: z.number().int().positive(),
-  bienSo: z.string().trim().min(3, 'Biển số xe là bắt buộc'),
   soTan: z.number().positive('Số tấn phải lớn hơn 0'),
   donGia: z.number().positive('Đơn giá phải lớn hơn 0'),
+  congNoDau: z.number().min(0, 'Công nợ đầu không được âm').optional(),
   thanhToan: z.number().min(0, 'Thanh toán không được âm'),
   khachHangId: z.number().int().positive().optional(),
   khachHang: z.string().trim().min(2).optional(),
@@ -38,6 +38,7 @@ type TruckRawRow = {
   ngay_can: string;
   khoi_luong_tan: number | string;
   don_gia_ap_dung: number | string;
+  cong_no_dau: number | string | null;
   so_tien_da_tra: number | string;
   khach_hang_id: number | null;
   khach_hang: string | null;
@@ -56,6 +57,7 @@ type CalculatedTruckRow = {
   bienSo: string;
   soTan: number;
   donGia: number;
+  congNoDau: number;
   thanhTien: number;
   congNo: number;
   thanhToan: number;
@@ -87,7 +89,7 @@ async function ensureManagerAccess() {
   }
 
   if (profileResult.data.role === 'Viewer') {
-    return { ok: false as const, status: 403, error: 'Bạn không có quyền truy cập trang xe hàng' };
+    return { ok: false as const, status: 403, error: 'Bạn không có quyền truy cập trang mua hàng' };
   }
 
   return {
@@ -96,37 +98,6 @@ async function ensureManagerAccess() {
     userId: user.id,
     fullName: profileResult.data.full_name?.trim() || user.email || 'Người dùng',
   };
-}
-
-async function getOrCreateTruckId(supabase: Awaited<ReturnType<typeof createClient>>, bienSo: string) {
-  const existing = await supabase
-    .from('xe_hang')
-    .select('id')
-    .ilike('bien_so', bienSo)
-    .maybeSingle();
-
-  if (existing.error) {
-    throw new Error(existing.error.message);
-  }
-
-  if (existing.data) {
-    return (existing.data as { id: number }).id;
-  }
-
-  const inserted = await supabase
-    .from('xe_hang')
-    .insert({
-      bien_so: bienSo,
-      is_active: true,
-    })
-    .select('id')
-    .single();
-
-  if (inserted.error) {
-    throw new Error(inserted.error.message);
-  }
-
-  return (inserted.data as { id: number }).id;
 }
 
 async function getDefaultWoodTypeId(supabase: Awaited<ReturnType<typeof createClient>>) {
@@ -180,6 +151,15 @@ function toNumber(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function toOptionalNumber(value: unknown) {
+  if (value === null || value === undefined || value === '') {
+    return undefined;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function resolveCustomerCode(customer: Record<string, unknown> | null, customerId: number | null) {
   if (!customer) {
     return customerId ? `KH${String(customerId).padStart(3, '0')}` : 'KH-LE';
@@ -214,12 +194,9 @@ function normalizeCreatePayload(body: unknown) {
     ngayCan:
       (typed.ngay_can as string | undefined) ??
       (typed.ngayCan as string | undefined),
-    bienSo:
-      (typed.bien_so_xe as string | undefined) ??
-      (typed.bienSo as string | undefined) ??
-      '',
     soTan: toNumber((typed.khoi_luong_tan as unknown) ?? typed.soTan),
     donGia: toNumber((typed.don_gia_ap_dung as unknown) ?? typed.donGia),
+    congNoDau: toOptionalNumber((typed.cong_no_dau as unknown) ?? typed.congNoDau),
     thanhToan: toNumber((typed.so_tien_da_tra as unknown) ?? typed.thanhToan),
     khachHangId: toNumber((typed.khach_hang_id as unknown) ?? typed.khachHangId),
     ghiChu:
@@ -242,17 +219,18 @@ function calculateDebtByCustomer(rawRows: TruckRawRow[]) {
     const previousRemain = previousRemainByCustomer.get(customerKey) ?? 0;
     const soTan = Math.max(0, toNumber(typed.khoi_luong_tan));
     const donGia = Math.max(0, toNumber(typed.don_gia_ap_dung));
+    const congNoDau = Math.max(0, toNumber(typed.cong_no_dau));
     const thanhTien = soTan * donGia;
-    const congNo = Math.max(0, thanhTien + previousRemain);
+    const congNo = Math.max(0, congNoDau + thanhTien + previousRemain);
     const thanhToan = Math.max(0, toNumber(typed.so_tien_da_tra));
     const conLai = Math.max(0, congNo - thanhToan);
 
     previousRemainByCustomer.set(customerKey, conLai);
 
     const formulaText =
-      previousRemain <= 0
+      previousRemain <= 0 && congNoDau <= 0
         ? `Cong no = ${thanhTien.toLocaleString('vi-VN')} (phieu dau tien cua khach hang ${customerName})`
-        : `Cong no = ${thanhTien.toLocaleString('vi-VN')} + ${previousRemain.toLocaleString('vi-VN')} = ${congNo.toLocaleString('vi-VN')}`;
+        : `Cong no = ${congNoDau.toLocaleString('vi-VN')} + ${thanhTien.toLocaleString('vi-VN')} + ${previousRemain.toLocaleString('vi-VN')} = ${congNo.toLocaleString('vi-VN')}`;
 
     return {
       id: typed.id,
@@ -264,6 +242,7 @@ function calculateDebtByCustomer(rawRows: TruckRawRow[]) {
       bienSo: typed.xe_hang?.bien_so ?? '-',
       soTan,
       donGia,
+      congNoDau,
       thanhTien,
       congNo,
       thanhToan,
@@ -309,7 +288,7 @@ function buildCustomerDebts(rows: CalculatedTruckRow[]) {
 async function fetchTickets(supabase: Awaited<ReturnType<typeof createClient>>) {
   const result = await supabase
     .from('phieu_can')
-    .select('id, ngay_can, khoi_luong_tan, don_gia_ap_dung, so_tien_da_tra, khach_hang_id, khach_hang, ghi_chu, xe_hang:xe_hang_id(bien_so), customer:khach_hang_id(*)')
+    .select('id, ngay_can, khoi_luong_tan, don_gia_ap_dung, cong_no_dau, so_tien_da_tra, khach_hang_id, khach_hang, ghi_chu, xe_hang:xe_hang_id(bien_so), customer:khach_hang_id(*)')
     .order('ngay_can', { ascending: true })
     .order('id', { ascending: true });
 
@@ -336,12 +315,17 @@ async function resolveCustomerById(supabase: Awaited<ReturnType<typeof createCli
   }
 
   const typed = result.data as Record<string, unknown>;
+  const customerType = (typed.loai_khach_hang as string | undefined) ?? 'mua';
   const name =
     (typed.ten as string | undefined) ??
     (typed.ten_khach_hang as string | undefined) ??
     (typed.name as string | undefined) ??
     (typed.ho_ten as string | undefined) ??
     '';
+
+  if (customerType !== 'mua') {
+    throw new Error('Chỉ được chọn khách hàng loại Mua cho phiếu mua hàng');
+  }
 
   if (!name.trim()) {
     throw new Error('Khách hàng không hợp lệ');
@@ -380,7 +364,6 @@ export async function GET(request: NextRequest) {
 
     const fromDate = searchParams.get('fromDate')?.trim() || '';
     const toDate = searchParams.get('toDate')?.trim() || '';
-    const plate = searchParams.get('plate')?.trim().toLowerCase() || '';
     const customer = searchParams.get('customer')?.trim().toLowerCase() || '';
     const customerId = parsePositiveInt(searchParams.get('customerId'), 0);
 
@@ -390,16 +373,15 @@ export async function GET(request: NextRequest) {
 
     const rows = await fetchTickets(access.supabase);
 
-    // Base filter for search/date/plate; used to build customer debt cards.
+    // Base filter for search/date/customer; used to build customer debt cards.
     const filteredByBase = rows.filter((row) => {
       const matchFromDate = !fromDate || row.ngay >= fromDate;
       const matchToDate = !toDate || row.ngay <= toDate;
-      const matchPlate = !plate || row.bienSo.toLowerCase().includes(plate);
       const matchCustomer =
         !customer ||
         row.khachHang.toLowerCase().includes(customer) ||
         row.customerCode.toLowerCase().includes(customer);
-      return matchFromDate && matchToDate && matchPlate && matchCustomer;
+      return matchFromDate && matchToDate && matchCustomer;
     });
 
     const customerDebts = buildCustomerDebts(filteredByBase);
@@ -455,11 +437,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const truckId = await getOrCreateTruckId(access.supabase, parsed.data.bienSo);
     const customer = await resolveCustomerById(access.supabase, parsed.data.khachHangId);
     const woodTypeId = await getDefaultWoodTypeId(access.supabase);
     const soPhieu = await generateTicketNo(access.supabase);
     const thanhTien = parsed.data.soTan * parsed.data.donGia;
+    const congNoDau = Math.max(0, parsed.data.congNoDau ?? 0);
     const soTienDaTra = Math.min(parsed.data.thanhToan, thanhTien);
 
     const insertTicket = await access.supabase
@@ -467,10 +449,10 @@ export async function POST(request: NextRequest) {
       .insert({
         so_phieu: soPhieu,
         ngay_can: parsed.data.ngayCan ?? format(new Date(), 'yyyy-MM-dd'),
-        xe_hang_id: truckId,
         loai_van_ep_id: woodTypeId,
         khoi_luong_tan: parsed.data.soTan,
         don_gia_ap_dung: parsed.data.donGia,
+        cong_no_dau: congNoDau,
         so_tien_da_tra: soTienDaTra,
         khach_hang_id: customer.id,
         khach_hang: customer.name,
@@ -529,7 +511,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const target = await access.supabase
       .from('phieu_can')
-      .select('id, thanh_tien, so_tien_da_tra')
+      .select('id, thanh_tien, so_tien_da_tra, cong_no_dau')
       .eq('id', parsed.data.id)
       .maybeSingle();
 
@@ -541,20 +523,25 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Không tìm thấy phiếu cân cần sửa' }, { status: 404 });
     }
 
-    const typedTarget = target.data as { id: number; thanh_tien: number | string; so_tien_da_tra: number | string };
-    const truckId = await getOrCreateTruckId(access.supabase, parsed.data.bienSo);
+    const typedTarget = target.data as {
+      id: number;
+      thanh_tien: number | string;
+      so_tien_da_tra: number | string;
+      cong_no_dau: number | string | null;
+    };
     const customer = parsed.data.khachHangId
       ? await resolveCustomerById(access.supabase, parsed.data.khachHangId)
       : { id: null, name: parsed.data.khachHang ?? 'Khách lẻ' };
     const maxPay = parsed.data.soTan * parsed.data.donGia;
     const safePay = Math.min(parsed.data.thanhToan, maxPay);
+    const congNoDau = parsed.data.congNoDau ?? Math.max(0, toNumber(typedTarget.cong_no_dau));
 
     const update = await access.supabase
       .from('phieu_can')
       .update({
-        xe_hang_id: truckId,
         khoi_luong_tan: parsed.data.soTan,
         don_gia_ap_dung: parsed.data.donGia,
+        cong_no_dau: congNoDau,
         so_tien_da_tra: safePay,
         khach_hang_id: customer.id,
         khach_hang: customer.name,
@@ -573,7 +560,7 @@ export async function PATCH(request: NextRequest) {
         so_tien: safePay,
         nguoi_thu: access.fullName,
         phuong_thuc: 'TienMat',
-        ghi_chu: 'Cập nhật thanh toán từ màn hình xe hàng',
+        ghi_chu: 'Cập nhật thanh toán từ màn hình mua hàng',
         created_by: access.userId,
       });
 

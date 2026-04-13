@@ -37,19 +37,19 @@ type ApiResponse = {
 };
 
 type TicketForm = {
-  bienSo: string;
   soTan: string;
   donGia: string;
+  congNoDau: string;
   thanhToan: string;
   khachHangId: string;
   ghiChu: string;
 };
 
 const defaultForm: TicketForm = {
-  bienSo: '',
   soTan: '',
   donGia: '',
-  thanhToan: '0',
+  congNoDau: '',
+  thanhToan: '',
   khachHangId: '',
   ghiChu: '',
 };
@@ -57,7 +57,6 @@ const defaultForm: TicketForm = {
 const defaultFilter: TruckFilterValues = {
   fromDate: '',
   toDate: '',
-  plate: '',
   customer: '',
 };
 
@@ -98,7 +97,6 @@ export default function TrucksPage() {
 
       if (appliedFilter.fromDate) searchParams.set('fromDate', appliedFilter.fromDate);
       if (appliedFilter.toDate) searchParams.set('toDate', appliedFilter.toDate);
-      if (appliedFilter.plate.trim()) searchParams.set('plate', appliedFilter.plate.trim());
       if (appliedFilter.customer.trim()) searchParams.set('customer', appliedFilter.customer.trim());
       if (activeCustomerId) searchParams.set('customerId', String(activeCustomerId));
 
@@ -123,7 +121,7 @@ export default function TrucksPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeCustomerId, appliedFilter.customer, appliedFilter.fromDate, appliedFilter.plate, appliedFilter.toDate, limit, page]);
+  }, [activeCustomerId, appliedFilter.customer, appliedFilter.fromDate, appliedFilter.toDate, limit, page]);
 
   const fetchTruckPage = useCallback(
     async (targetPage: number, targetLimit: number, filters: TruckFilterValues) => {
@@ -134,7 +132,6 @@ export default function TrucksPage() {
 
       if (filters.fromDate) searchParams.set('fromDate', filters.fromDate);
       if (filters.toDate) searchParams.set('toDate', filters.toDate);
-      if (filters.plate.trim()) searchParams.set('plate', filters.plate.trim());
       if (filters.customer.trim()) searchParams.set('customer', filters.customer.trim());
       if (activeCustomerId) searchParams.set('customerId', String(activeCustomerId));
 
@@ -174,9 +171,9 @@ export default function TrucksPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ngay_can: new Date().toISOString().slice(0, 10),
-          bien_so_xe: form.bienSo,
           khoi_luong_tan: Number(form.soTan),
           don_gia_ap_dung: Number(form.donGia),
+          cong_no_dau: Number(form.congNoDau || 0),
           so_tien_da_tra: Number(form.thanhToan || 0),
           khach_hang_id: Number(form.khachHangId),
           ghi_chu: form.ghiChu,
@@ -293,9 +290,9 @@ export default function TrucksPage() {
   return (
     <div className="space-y-5 px-4 md:px-6 lg:px-8">
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Quản lý xe hàng và phiếu cân</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Quản lý mua hàng và phiếu cân</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Công nợ được tính lũy kế theo công thức: dòng sau = Thành tiền hiện tại + Còn lại của dòng trước.
+          Công nợ được tính lũy kế theo công thức: Công nợ đầu + Thành tiền hiện tại + Còn lại của dòng trước.
         </p>
       </section>
 

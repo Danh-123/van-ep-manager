@@ -6,6 +6,7 @@ export type PermissionResource =
   | 'attendance'
   | 'salary'
   | 'trucks'
+  | 'sales'
   | 'debt'
   | 'reports'
   | 'employees'
@@ -37,6 +38,11 @@ const PERMISSIONS: Record<PermissionResource, PermissionSet> = {
     delete: ['Admin'],
   },
   trucks: {
+    view: ['Admin', 'KeToan'],
+    edit: ['Admin', 'KeToan'],
+    delete: ['Admin'],
+  },
+  sales: {
     view: ['Admin', 'KeToan'],
     edit: ['Admin', 'KeToan'],
     delete: ['Admin'],

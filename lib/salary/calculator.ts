@@ -125,9 +125,8 @@ export async function calculateMonthlySalary(
       .lte('ngay', end),
     supabase
       .from('luong_thang')
-      .select('cong_nhan_id, tong_tien_cong, tong_da_thanh_toan')
-      .eq('thang', month.getMonth() + 1)
-      .eq('nam', month.getFullYear()),
+      .select('cong_nhan_id, tong_luong')
+      .eq('thang', format(month, 'yyyy-MM-dd')),
     supabase
       .from('tong_tien_cong_ngay')
       .select('ngay, tong_tien')
@@ -157,12 +156,10 @@ export async function calculateMonthlySalary(
 
   // Build maps for worker salary data and adjustments
   const baseSalaryByWorker = new Map<number, number>();
-  const paidByWorker = new Map<number, number>();
 
   (monthlyDataResult.data ?? []).forEach((row) => {
-    const typed = row as { cong_nhan_id: number; tong_tien_cong: number | string; tong_da_thanh_toan: number | string };
-    baseSalaryByWorker.set(typed.cong_nhan_id, toNumber(typed.tong_tien_cong));
-    paidByWorker.set(typed.cong_nhan_id, toNumber(typed.tong_da_thanh_toan));
+    const typed = row as { cong_nhan_id: number; tong_luong: number | string };
+    baseSalaryByWorker.set(typed.cong_nhan_id, toNumber(typed.tong_luong));
   });
 
   // Build daily details from attendance records
@@ -226,9 +223,7 @@ export async function calculateMonthlySalary(
   // Update luong_thang with any adjustments if present
   for (const row of rows) {
     const baseSalary = baseSalaryByWorker.get(row.workerId) ?? 0;
-    const paid = Math.min(paidByWorker.get(row.workerId) ?? 0, row.totalSalary);
-
-    // Only update if there's a base salary or if record exists (has changes)
+    // Only update if there's a salary row to persist.
     if (baseSalary > 0 || baseSalaryByWorker.has(row.workerId)) {
       const upsertResult = await supabase
         .from('luong_thang')
@@ -237,15 +232,9 @@ export async function calculateMonthlySalary(
             cong_nhan_id: row.workerId,
             thang: month.getMonth() + 1,
             nam: month.getFullYear(),
-            tong_tien_cong: row.totalSalary,
-            tong_da_thanh_toan: paid,
-            trang_thai:
-              paid === 0
-                ? 'ChuaChot'
-                : paid < row.totalSalary
-                  ? 'DaThanhToanMotPhan'
-                  : 'DaThanhToanHet',
-            closed_at: paid >= row.totalSalary && row.totalSalary > 0 ? new Date().toISOString() : null,
+            luong_co_ban: row.baseSalary,
+            thuong: row.bonus,
+            phat: row.penalty,
           },
           { onConflict: 'cong_nhan_id,thang,nam' },
         )

@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import * as Tabs from '@radix-ui/react-tabs';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
 
 import CustomerDetailModal from '@/components/debt/CustomerDetailModal';
 import DebtSummaryTable from '@/components/debt/DebtSummaryTable';
@@ -14,6 +15,23 @@ type DebtSummaryItem = {
   so_dien_thoai: string;
   so_phieu: number;
   tong_no: number;
+};
+
+type CustomerDebtType = 'mua' | 'ban';
+
+type DebtGroup = {
+  customerId: number;
+  customerCode: string;
+  customerName: string;
+  customerPhone: string;
+  customerType: CustomerDebtType;
+  totalDebt: number;
+  tickets: DebtDetailItem[];
+};
+
+type DebtApiResponse = {
+  groups: DebtGroup[];
+  totalDebt: number;
 };
 
 type DebtDetailItem = {
@@ -39,6 +57,7 @@ function formatMoney(value: number) {
 export default function DebtPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<CustomerDebtType>('mua');
 
   const [activeCustomer, setActiveCustomer] = useState<DebtSummaryItem | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<DebtDetailItem | null>(null);
@@ -47,15 +66,22 @@ export default function DebtPage() {
 
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    setActiveCustomer(null);
+    setSelectedTicket(null);
+    setDetailOpen(false);
+    setPaymentOpen(false);
+  }, [activeTab]);
+
   const summaryQuery = useQuery({
-    queryKey: ['debt-summary'],
+    queryKey: ['debt-summary', activeTab],
     queryFn: async () => {
-      const response = await fetch('/api/debt/summary', { cache: 'no-store' });
+      const response = await fetch(`/api/debt?loaiKhachHang=${activeTab}`, { cache: 'no-store' });
       if (!response.ok) {
         throw new Error('Không thể tải tổng hợp công nợ');
       }
 
-      const json = (await response.json()) as { success: boolean; error?: string; data?: DebtSummaryItem[] };
+      const json = (await response.json()) as { success: boolean; error?: string; data?: DebtApiResponse };
       if (!json.success || !json.data) {
         throw new Error(json.error || 'Không thể tải tổng hợp công nợ');
       }
@@ -66,12 +92,12 @@ export default function DebtPage() {
   });
 
   const detailQuery = useQuery({
-    queryKey: ['debt-detail', activeCustomer?.id],
+    queryKey: ['debt-detail', activeTab, activeCustomer?.id],
     enabled: detailOpen && !!activeCustomer,
     queryFn: async () => {
       if (!activeCustomer) return [] as DebtDetailItem[];
 
-      const response = await fetch(`/api/debt/${activeCustomer.id}`, { cache: 'no-store' });
+      const response = await fetch(`/api/debt/${activeCustomer.id}?loaiKhachHang=${activeTab}`, { cache: 'no-store' });
       if (!response.ok) {
         throw new Error('Không thể tải chi tiết công nợ');
       }
@@ -86,12 +112,25 @@ export default function DebtPage() {
     staleTime: 30_000,
   });
 
-  const rows = useMemo(() => summaryQuery.data ?? [], [summaryQuery.data]);
-  const totalDebt = useMemo(() => rows.reduce((sum, item) => sum + item.tong_no, 0), [rows]);
+  const rows = useMemo<DebtSummaryItem[]>(() => {
+    const groups = summaryQuery.data?.groups ?? [];
+    return groups.map((group) => ({
+      id: group.customerId,
+      ma_khach_hang: group.customerCode,
+      ten_khach_hang: group.customerName,
+      so_dien_thoai: group.customerPhone,
+      so_phieu: group.tickets.length,
+      tong_no: group.totalDebt,
+    }));
+  }, [summaryQuery.data]);
+
+  const totalDebt = useMemo(() => summaryQuery.data?.totalDebt ?? 0, [summaryQuery.data]);
   const loading = summaryQuery.isLoading || summaryQuery.isFetching;
   const detailRows = useMemo(() => detailQuery.data ?? [], [detailQuery.data]);
 
   const customerCount = useMemo(() => rows.length, [rows.length]);
+
+  const tabLabel = activeTab === 'mua' ? 'Khách hàng mua' : 'Khách hàng bán';
 
   const openDetailModal = (customer: DebtSummaryItem) => {
     setActiveCustomer(customer);
@@ -110,8 +149,9 @@ export default function DebtPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">Công nợ khách hàng</h1>
+            <p className="mt-1 text-sm text-slate-600">Đang xem: {tabLabel}</p>
             <p className="mt-1 text-sm text-slate-600">Số khách hàng: {customerCount}</p>
-            <p className="mt-2 text-lg font-semibold text-red-600">Tổng nợ phải thu: {formatMoney(totalDebt)}</p>
+            <p className="mt-2 text-lg font-semibold text-red-600">Tổng công nợ: {formatMoney(totalDebt)}</p>
           </div>
         </div>
       </header>
@@ -128,7 +168,26 @@ export default function DebtPage() {
         </div>
       )}
 
-      <DebtSummaryTable rows={rows} loading={loading} onViewDetail={openDetailModal} />
+      <Tabs.Root value={activeTab} onValueChange={(value) => setActiveTab(value as CustomerDebtType)} className="space-y-4">
+        <Tabs.List className="inline-flex rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+          <Tabs.Trigger
+            value="mua"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-[#0B7285] data-[state=active]:text-white"
+          >
+            Khách hàng mua
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="ban"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 data-[state=active]:bg-[#0B7285] data-[state=active]:text-white"
+          >
+            Khách hàng bán
+          </Tabs.Trigger>
+        </Tabs.List>
+
+        <Tabs.Content value={activeTab} className="space-y-4">
+          <DebtSummaryTable rows={rows} loading={loading} onViewDetail={openDetailModal} />
+        </Tabs.Content>
+      </Tabs.Root>
 
       <CustomerDetailModal
         open={detailOpen}

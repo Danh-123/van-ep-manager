@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   LayoutDashboard,
   LogOut,
+  ShoppingCart,
   Truck,
   Users,
   UserCog,
@@ -35,6 +36,7 @@ type MenuItem = {
     | 'attendance'
     | 'salary'
     | 'trucks'
+    | 'sales'
     | 'debt'
     | 'reports'
     | 'employees'
@@ -53,7 +55,8 @@ const ADMIN_MENU_ITEMS: MenuItem[] = [
   { label: 'Tổng quan', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
   { label: 'Chấm công', href: '/attendance', icon: ClipboardCheck, resource: 'attendance' },
   { label: 'Tính lương', href: '/salary', icon: WalletCards, resource: 'salary' },
-  { label: 'Xe hàng', href: '/trucks', icon: Truck, resource: 'trucks' },
+  { label: 'Mua hàng', href: '/trucks', icon: Truck, resource: 'trucks' },
+  { label: 'Bán hàng', href: '/sales', icon: ShoppingCart, resource: 'sales' },
   { label: 'Công nợ', href: '/debt', icon: WalletCards, resource: 'debt' },
   { label: 'Báo cáo', href: '/reports', icon: BarChart3, resource: 'reports' },
   { label: 'Danh sách', href: '/employees', icon: Users, resource: 'employees' },

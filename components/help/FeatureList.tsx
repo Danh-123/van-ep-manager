@@ -38,8 +38,8 @@ const FEATURES = [
     tags: ['Lương', 'Excel'],
   },
   {
-    title: 'Quản lý xe hàng',
-    description: 'Tạo phiếu cân, quản lý công nợ tích lũy của từng phiếu, lịch sử thanh toán',
+    title: 'Quản lý mua hàng',
+    description: 'Tạo phiếu cân, quản lý công nợ đầu và công nợ tích lũy, lịch sử thanh toán',
     icon: Zap,
     color: 'from-amber-500 to-amber-600',
     tags: ['Phiếu cân', 'Công nợ'],

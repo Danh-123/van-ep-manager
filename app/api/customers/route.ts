@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 
 import { createClient } from '@/lib/supabase/server';
+
+const customerQuerySchema = z.object({
+  loaiKhachHang: z.enum(['mua', 'ban']).optional(),
+});
 
 function resolveCustomerCode(customer: Record<string, unknown>) {
   return (
@@ -44,16 +49,31 @@ async function ensureAccess() {
   return { ok: true as const, supabase };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const access = await ensureAccess();
   if (!access.ok) {
     return NextResponse.json({ success: false, error: access.error }, { status: access.status });
   }
 
-  const result = await access.supabase
-    .from('khach_hang')
-    .select('*')
-    .order('ten_khach_hang', { ascending: true });
+  const url = new URL(request.url);
+  const filters = customerQuerySchema.safeParse({
+    loaiKhachHang: url.searchParams.get('loaiKhachHang') ?? undefined,
+  });
+
+  if (!filters.success) {
+    return NextResponse.json(
+      { success: false, error: filters.error.issues[0]?.message ?? 'Tham số không hợp lệ' },
+      { status: 400 },
+    );
+  }
+
+  let query = access.supabase.from('khach_hang').select('*').order('ten_khach_hang', { ascending: true });
+
+  if (filters.data.loaiKhachHang) {
+    query = query.eq('loai_khach_hang', filters.data.loaiKhachHang);
+  }
+
+  const result = await query;
 
   if (result.error) {
     return NextResponse.json({ success: false, error: result.error.message }, { status: 500 });

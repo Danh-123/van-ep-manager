@@ -210,7 +210,7 @@ export default function CreateTicketModal({
                   id="khoiLuongKg"
                   type="number"
                   min={0}
-                  step="0.1"
+                  step="any"
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
                   {...register('khoiLuongKg', { valueAsNumber: true })}
                 />
@@ -223,7 +223,7 @@ export default function CreateTicketModal({
                   id="donGia"
                   type="number"
                   min={0}
-                  step="100"
+                  step="any"
                   className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
                   {...register('donGia', { valueAsNumber: true })}
                 />

@@ -4,9 +4,16 @@ import { z } from 'zod';
 
 import { createClient } from '@/lib/supabase/server';
 
+export type CustomerType = 'mua' | 'ban';
+
+function normalizeCustomerType(value: unknown): CustomerType {
+  return value === 'ban' ? 'ban' : 'mua';
+}
+
 const createCustomerSchema = z.object({
   maKhachHang: z.string().trim().optional(),
   tenKhachHang: z.string().trim().min(2, 'Ten khach hang phai co it nhat 2 ky tu').max(160),
+  loaiKhachHang: z.enum(['mua', 'ban']).optional(),
   soDienThoai: z
     .string()
     .trim()
@@ -20,6 +27,7 @@ const updateCustomerSchema = z.object({
   id: z.number().int().positive(),
   maKhachHang: z.string().trim().min(2, 'Ma khach hang khong hop le').max(30),
   tenKhachHang: z.string().trim().min(2, 'Ten khach hang phai co it nhat 2 ky tu').max(160),
+  loaiKhachHang: z.enum(['mua', 'ban']).optional(),
   soDienThoai: z
     .string()
     .trim()
@@ -32,6 +40,7 @@ const updateCustomerSchema = z.object({
 const importRowSchema = z.object({
   maKhachHang: z.string().trim().min(2).max(30).optional().or(z.literal('')),
   tenKhachHang: z.string().trim().min(2, 'Ten khach hang bat buoc').max(160),
+  loaiKhachHang: z.enum(['mua', 'ban']).optional(),
   soDienThoai: z
     .string()
     .trim()
@@ -45,6 +54,7 @@ export type CustomerItem = {
   id: number;
   maKhachHang: string;
   tenKhachHang: string;
+  loaiKhachHang: CustomerType;
   soDienThoai: string | null;
   diaChi: string | null;
   createdAt: string;
@@ -63,6 +73,7 @@ type ActionResult<T> =
 type ImportRowInput = {
   maKhachHang?: string;
   tenKhachHang: string;
+  loaiKhachHang?: CustomerType;
   soDienThoai?: string;
   diaChi?: string;
 };
@@ -139,6 +150,7 @@ function mapCustomerRow(row: Record<string, unknown>): CustomerItem {
       (row.name as string | undefined) ??
       (row.ho_ten as string | undefined) ??
       '',
+    loaiKhachHang: normalizeCustomerType(row.loai_khach_hang),
     soDienThoai:
       (row.so_dien_thoai as string | undefined) ??
       (row.sdt as string | undefined) ??
@@ -169,7 +181,7 @@ export async function getCustomers(query: CustomersQuery = {}): Promise<ActionRe
 
   let dbQuery = supabase
     .from('khach_hang')
-    .select('id, ma_khach_hang, ten_khach_hang, so_dien_thoai, dia_chi, created_at', { count: 'exact' })
+    .select('id, ma_khach_hang, ten_khach_hang, loai_khach_hang, so_dien_thoai, dia_chi, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(start, end);
 
@@ -214,16 +226,18 @@ export async function createCustomer(input: z.input<typeof createCustomerSchema>
   const supabase = await createClient();
   const payload = parsed.data;
   const maKhachHang = payload.maKhachHang?.trim() || (await generateCustomerCode());
+  const loaiKhachHang = normalizeCustomerType(payload.loaiKhachHang);
 
   const { data, error } = await supabase
     .from('khach_hang')
     .insert({
       ma_khach_hang: maKhachHang,
       ten_khach_hang: payload.tenKhachHang,
+      loai_khach_hang: loaiKhachHang,
       so_dien_thoai: normalizePhone(payload.soDienThoai),
       dia_chi: normalizeAddress(payload.diaChi),
     })
-    .select('id, ma_khach_hang, ten_khach_hang, so_dien_thoai, dia_chi, created_at')
+    .select('id, ma_khach_hang, ten_khach_hang, loai_khach_hang, so_dien_thoai, dia_chi, created_at')
     .single();
 
   if (error) {
@@ -250,17 +264,19 @@ export async function updateCustomer(input: z.input<typeof updateCustomerSchema>
 
   const supabase = await createClient();
   const payload = parsed.data;
+  const loaiKhachHang = normalizeCustomerType(payload.loaiKhachHang);
 
   const { data, error } = await supabase
     .from('khach_hang')
     .update({
       ma_khach_hang: payload.maKhachHang,
       ten_khach_hang: payload.tenKhachHang,
+      loai_khach_hang: loaiKhachHang,
       so_dien_thoai: normalizePhone(payload.soDienThoai),
       dia_chi: normalizeAddress(payload.diaChi),
     })
     .eq('id', payload.id)
-    .select('id, ma_khach_hang, ten_khach_hang, so_dien_thoai, dia_chi, created_at')
+    .select('id, ma_khach_hang, ten_khach_hang, loai_khach_hang, so_dien_thoai, dia_chi, created_at')
     .single();
 
   if (error) {
@@ -286,25 +302,7 @@ export async function deleteCustomer(id: number): Promise<ActionResult<{ id: num
 
   const supabase = await createClient();
 
-  const ticketCheck = await supabase
-    .from('phieu_can')
-    .select('id', { count: 'exact', head: true })
-    .eq('khach_hang_id', id);
-
-  if (ticketCheck.error) {
-    return {
-      success: false,
-      error: mapDbError(ticketCheck.error),
-    };
-  }
-
-  if ((ticketCheck.count ?? 0) > 0) {
-    return {
-      success: false,
-      error: 'Khong the xoa khach hang da co du lieu phieu can.',
-    };
-  }
-
+  // DELETE CÓ CASCADE - Sẽ tự động xóa phiếu cân + phiếu bán
   const { error } = await supabase.from('khach_hang').delete().eq('id', id);
 
   if (error) {
@@ -359,6 +357,7 @@ export async function importCustomers(
 
     const payload = parsed.data;
     const maKhachHang = payload.maKhachHang?.trim() || (await generateCustomerCode());
+    const loaiKhachHang = normalizeCustomerType(payload.loaiKhachHang);
 
     const existing = await supabase
       .from('khach_hang')
@@ -382,6 +381,7 @@ export async function importCustomers(
         .from('khach_hang')
         .update({
           ten_khach_hang: payload.tenKhachHang,
+          loai_khach_hang: loaiKhachHang,
           so_dien_thoai: normalizePhone(payload.soDienThoai),
           dia_chi: normalizeAddress(payload.diaChi),
         })
@@ -400,6 +400,7 @@ export async function importCustomers(
     const insertResult = await supabase.from('khach_hang').insert({
       ma_khach_hang: maKhachHang,
       ten_khach_hang: payload.tenKhachHang,
+      loai_khach_hang: loaiKhachHang,
       so_dien_thoai: normalizePhone(payload.soDienThoai),
       dia_chi: normalizeAddress(payload.diaChi),
     });

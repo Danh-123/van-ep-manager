@@ -12,6 +12,7 @@ type TruckRow = {
   bienSo: string;
   soTan: number;
   donGia: number;
+  congNoDau: number;
   thanhTien: number;
   congNo: number;
   thanhToan: number;
@@ -37,7 +38,6 @@ function formatCurrency(value: number) {
 const widths = {
   stt: 'w-[50px] min-w-[50px]',
   ngay: 'w-[100px] min-w-[100px]',
-  bienSo: 'w-[100px] min-w-[100px]',
   soTan: 'w-[80px] min-w-[80px]',
   donGia: 'w-[100px] min-w-[100px]',
   thanhTien: 'w-[120px] min-w-[120px]',
@@ -64,7 +64,6 @@ export default function TruckTable({
           <tr>
             <th className={`px-2 py-2 ${widths.stt}`}>STT</th>
             <th className={`px-2 py-2 ${widths.ngay}`}>Ngày</th>
-            <th className={`px-2 py-2 ${widths.bienSo}`}>Biển số</th>
             <th className={`px-2 py-2 ${widths.soTan}`}>Số tấn</th>
             <th className={`px-2 py-2 ${widths.donGia}`}>Đơn giá</th>
             <th className={`px-2 py-2 ${widths.thanhTien}`}>Thành tiền</th>
@@ -80,7 +79,7 @@ export default function TruckTable({
         <tbody className="divide-y divide-slate-100 bg-white">
           {loading && (
             <tr>
-              <td colSpan={12} className="px-3 py-8 text-center text-slate-500">
+              <td colSpan={11} className="px-3 py-8 text-center text-slate-500">
                 Đang tải dữ liệu...
               </td>
             </tr>
@@ -88,7 +87,7 @@ export default function TruckTable({
 
           {!loading && rows.length === 0 && (
             <tr>
-              <td colSpan={12} className="px-3 py-8 text-center text-slate-500">
+              <td colSpan={11} className="px-3 py-8 text-center text-slate-500">
                 Chưa có phiếu cân nào.
               </td>
             </tr>
@@ -99,7 +98,6 @@ export default function TruckTable({
               <tr key={row.id} className="align-top">
                 <td className={`px-2 py-3 text-slate-700 ${widths.stt}`}>{index + 1}</td>
                 <td className={`px-2 py-3 text-slate-700 ${widths.ngay}`}>{format(new Date(row.ngay), 'dd/MM/yyyy')}</td>
-                <td className={`px-2 py-3 font-medium text-slate-800 ${widths.bienSo}`}>{row.bienSo}</td>
                 <td className={`px-2 py-3 text-slate-700 ${widths.soTan}`}>{formatNumber(row.soTan, 2)}</td>
                 <td className={`px-2 py-3 text-slate-700 ${widths.donGia}`}>{formatCurrency(row.donGia)}</td>
                 <td className={`px-2 py-3 font-semibold text-blue-700 ${widths.thanhTien}`}>{formatCurrency(row.thanhTien)}</td>

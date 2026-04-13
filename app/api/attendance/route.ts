@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
     return {
       congNhanId: typedWorker.id,
       hoTen: typedWorker.ho_ten,
-      status: attendanceMap.get(typedWorker.id) ?? 'Nghi',
+      status: attendanceMap.get(typedWorker.id) ?? 'CoMat',
     };
   });
 

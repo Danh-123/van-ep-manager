@@ -20,6 +20,7 @@ import EmployeeForm from '@/components/employees/EmployeeForm';
 import LinkUserModal from '@/components/employees/LinkUserModal';
 import EmployeeTable from '@/components/employees/EmployeeTable';
 import ImportModal from '@/components/employees/ImportModal';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 
 const filterSchema = z.object({
   search: z.string().optional(),
@@ -47,9 +48,13 @@ export default function EmployeeTab() {
   const [importOpen, setImportOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [unlinkOpen, setUnlinkOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePreviewData, setDeletePreviewData] = useState(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeItem | null>(null);
 
   const [isPending, startTransition] = useTransition();
+  const [isDeleteLoadingConfirm, setIsDeleteLoadingConfirm] = useState(false);
   const queryClient = useQueryClient();
 
   const {
@@ -98,15 +103,28 @@ export default function EmployeeTab() {
     setPage(nextPage);
   };
 
-  const handleDelete = (item: EmployeeItem) => {
-    const confirmed = window.confirm(
-      `Bạn có chắc chắn muốn xóa công nhân ${item.hoTen}? Hành động này không thể hoàn tác.`,
-    );
+  const handleDelete = async (item: EmployeeItem) => {
+    setDeletingId(item.id);
+    try {
+      const response = await fetch(`/api/employees/${item.id}/delete-preview`);
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Lỗi lấy dữ liệu xóa');
+        return;
+      }
+      const data = await response.json();
+      setDeletePreviewData(data);
+      setDeleteOpen(true);
+    } catch (err) {
+      setError('Lỗi kết nối: ' + (err instanceof Error ? err.message : 'Không xác định'));
+    }
+  };
 
-    if (!confirmed) return;
-
-    startTransition(async () => {
-      const result = await deleteEmployee(item.id);
+  const handleConfirmDelete = async () => {
+    if (deletingId === null) return;
+    setIsDeleteLoadingConfirm(true);
+    try {
+      const result = await deleteEmployee(deletingId);
       if (!result.success) {
         setError(result.error);
         return;
@@ -115,7 +133,18 @@ export default function EmployeeTab() {
       const nextPage = rows.length === 1 && page > 1 ? page - 1 : page;
       setPage(nextPage);
       await queryClient.invalidateQueries({ queryKey: ['employees'] });
-    });
+      setDeleteOpen(false);
+      setDeletePreviewData(null);
+      setDeletingId(null);
+    } finally {
+      setIsDeleteLoadingConfirm(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteOpen(false);
+    setDeletePreviewData(null);
+    setDeletingId(null);
   };
 
   const handleExportExcel = () => {
@@ -390,11 +419,20 @@ export default function EmployeeTab() {
               >
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Xác nhận
-              </button>
+          </button>
             </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      <DeleteConfirmationModal
+        open={deleteOpen}
+        loading={isDeleteLoadingConfirm}
+        data={deletePreviewData}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        type="employee"
+      />
     </div>
   );
 }

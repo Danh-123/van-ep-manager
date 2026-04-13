@@ -3,17 +3,12 @@
 import { Loader2, Save } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-type AttendanceStatus = 'CoMat' | 'Nghi' | 'NghiPhep' | 'LamThem';
-
-type WorkerAttendanceRow = {
-  congNhanId: number;
-  hoTen: string;
-  status: AttendanceStatus;
-};
+import AttendanceForm from '@/components/attendance/AttendanceForm';
+import AttendanceRow, { type AttendanceRowData, type AttendanceStatus } from '@/components/attendance/AttendanceRow';
 
 type AttendanceLoadResponse = {
   date: string;
-  rows: WorkerAttendanceRow[];
+  rows: AttendanceRowData[];
 };
 
 function todayIso() {
@@ -44,11 +39,11 @@ function isPresent(status: AttendanceStatus) {
 
 export default function AttendancePage() {
   const [selectedDate, setSelectedDate] = useState(todayIso());
-  const [rows, setRows] = useState<WorkerAttendanceRow[]>([]);
-  const [caoSuKg, setCaoSuKg] = useState('0');
-  const [donGiaCaoSu, setDonGiaCaoSu] = useState('0');
-  const [dieuKg, setDieuKg] = useState('0');
-  const [donGiaDieu, setDonGiaDieu] = useState('0');
+  const [rows, setRows] = useState<AttendanceRowData[]>([]);
+  const [caoSuKg, setCaoSuKg] = useState('');
+  const [donGiaCaoSu, setDonGiaCaoSu] = useState('');
+  const [dieuKg, setDieuKg] = useState('');
+  const [donGiaDieu, setDonGiaDieu] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -233,102 +228,28 @@ export default function AttendancePage() {
                   </td>
                 </tr>
               ) : (
-                rows.map((row) => (
-                  <tr key={row.congNhanId} className="border-b border-slate-100 last:border-0">
-                    <td className="px-3 py-2.5 text-slate-800">{row.hoTen}</td>
-                    <td className="px-3 py-2.5">
-                      <select
-                        value={row.status}
-                        onChange={(event) => updateStatus(row.congNhanId, event.target.value as AttendanceStatus)}
-                        className="h-10 w-full max-w-[220px] rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
-                      >
-                        <option value="CoMat">Có mặt</option>
-                        <option value="Nghi">Nghỉ</option>
-                        <option value="NghiPhep">Nghỉ phép</option>
-                        <option value="LamThem">Làm thêm</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))
+                rows.map((row) => <AttendanceRow key={row.congNhanId} row={row} onChangeStatus={updateStatus} />)
               )}
             </tbody>
           </table>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Nhập sản lượng</h2>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="cao-su-kg">
-              Cao su (kg)
-            </label>
-            <input
-              id="cao-su-kg"
-              type="number"
-              min={0}
-              value={caoSuKg}
-              onChange={(event) => setCaoSuKg(event.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="don-gia-cao-su">
-              Đơn giá cao su
-            </label>
-            <input
-              id="don-gia-cao-su"
-              type="number"
-              min={0}
-              value={donGiaCaoSu}
-              onChange={(event) => setDonGiaCaoSu(event.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="dieu-kg">
-              Điều (kg)
-            </label>
-            <input
-              id="dieu-kg"
-              type="number"
-              min={0}
-              value={dieuKg}
-              onChange={(event) => setDieuKg(event.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-slate-700" htmlFor="don-gia-dieu">
-              Đơn giá điều
-            </label>
-            <input
-              id="don-gia-dieu"
-              type="number"
-              min={0}
-              value={donGiaDieu}
-              onChange={(event) => setDonGiaDieu(event.target.value)}
-              className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
-            />
-          </div>
-        </div>
-
-        <div className="mt-5 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-          <p>
-            Tổng lương = ({parseNonNegative(caoSuKg).toLocaleString('vi-VN')}kg × {formatMoney(parseNonNegative(donGiaCaoSu))}) + ({parseNonNegative(dieuKg).toLocaleString('vi-VN')}kg × {formatMoney(parseNonNegative(donGiaDieu))}) = <span className="font-semibold text-slate-900">{formatMoney(tongLuongNgay)}</span>
-          </p>
-          <p>
-            Số người có mặt: <span className="font-semibold text-slate-900">{soNguoiCoMat}</span>
-          </p>
-          <p>
-            Lương mỗi người: <span className="font-semibold text-slate-900">{formatMoney(luongMoiNguoi)}</span>
-          </p>
-        </div>
-      </section>
+      <AttendanceForm
+        caoSuKg={caoSuKg}
+        setCaoSuKg={setCaoSuKg}
+        donGiaCaoSu={donGiaCaoSu}
+        setDonGiaCaoSu={setDonGiaCaoSu}
+        dieuKg={dieuKg}
+        setDieuKg={setDieuKg}
+        donGiaDieu={donGiaDieu}
+        setDonGiaDieu={setDonGiaDieu}
+        tongLuongNgay={tongLuongNgay}
+        soNguoiCoMat={soNguoiCoMat}
+        luongMoiNguoi={luongMoiNguoi}
+        formatMoney={formatMoney}
+        parseNonNegative={parseNonNegative}
+      />
 
       {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>}
       {success && (

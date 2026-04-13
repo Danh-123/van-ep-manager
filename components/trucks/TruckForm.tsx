@@ -6,9 +6,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLastDebt } from '@/hooks/useLastDebt';
 
 type TicketForm = {
-  bienSo: string;
   soTan: string;
   donGia: string;
+  congNoDau: string;
   thanhToan: string;
   khachHangId: string;
   ghiChu: string;
@@ -53,7 +53,7 @@ export default function TruckForm({
       setCustomerError(null);
 
       try {
-        const response = await fetch('/api/customers', { cache: 'no-store' });
+        const response = await fetch('/api/customers?loaiKhachHang=mua', { cache: 'no-store' });
         const json = (await response.json()) as {
           success: boolean;
           error?: string;
@@ -90,7 +90,8 @@ export default function TruckForm({
     return Math.max(0, soTan * donGia);
   }, [form.donGia, form.soTan]);
 
-  const congNo = useMemo(() => Math.max(0, thanhTien + previousRemain), [thanhTien, previousRemain]);
+  const congNoDau = useMemo(() => Math.max(0, Number(form.congNoDau || 0)), [form.congNoDau]);
+  const congNo = useMemo(() => Math.max(0, thanhTien + previousRemain + congNoDau), [congNoDau, thanhTien, previousRemain]);
   const conLai = useMemo(() => {
     const thanhToan = Math.max(0, Number(form.thanhToan || 0));
     return Math.max(0, congNo - thanhToan);
@@ -100,12 +101,12 @@ export default function TruckForm({
   const displayCustomerName = customerName || selectedCustomer?.name || 'khách hàng này';
 
   const formulaText = isFirstTicket
-    ? `📐 Công thức: Công nợ = ${thanhTien.toLocaleString('vi-VN')} (phiếu đầu tiên của khách hàng ${displayCustomerName})`
-    : `📐 Công thức: Công nợ = ${thanhTien.toLocaleString('vi-VN')} + ${previousRemain.toLocaleString('vi-VN')} = ${congNo.toLocaleString('vi-VN')}`;
+    ? `📐 Công thức: Công nợ = ${congNoDau.toLocaleString('vi-VN')} + ${thanhTien.toLocaleString('vi-VN')} = ${congNo.toLocaleString('vi-VN')} (khách hàng ${displayCustomerName})`
+    : `📐 Công thức: Công nợ = ${congNoDau.toLocaleString('vi-VN')} + ${thanhTien.toLocaleString('vi-VN')} + ${previousRemain.toLocaleString('vi-VN')} = ${congNo.toLocaleString('vi-VN')}`;
 
   return (
     <form onSubmit={onSubmit} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h2 className="mb-3 text-lg font-semibold text-slate-900">Thêm phiếu mới</h2>
+      <h2 className="mb-3 text-lg font-semibold text-slate-900">Thêm phiếu mua hàng mới</h2>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         <select
@@ -115,7 +116,7 @@ export default function TruckForm({
           required
           disabled={loadingCustomers}
         >
-          <option value="">{loadingCustomers ? 'Đang tải khách hàng...' : 'Chọn khách hàng'}</option>
+          <option value="">{loadingCustomers ? 'Đang tải khách hàng...' : 'Chọn khách hàng mua'}</option>
           {customers.map((customer) => (
             <option key={customer.id} value={String(customer.id)}>
               {customer.code} - {customer.name}
@@ -124,17 +125,8 @@ export default function TruckForm({
         </select>
 
         <input
-          type="text"
-          placeholder="Biển số"
-          value={form.bienSo}
-          onChange={(event) => onChange({ ...form, bienSo: event.target.value })}
-          className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
-          required
-        />
-
-        <input
           type="number"
-          step="0.1"
+          step="any"
           min="0"
           placeholder="Số tấn"
           value={form.soTan}
@@ -145,7 +137,7 @@ export default function TruckForm({
 
         <input
           type="number"
-          step="1000"
+          step="any"
           min="0"
           placeholder="Đơn giá"
           value={form.donGia}
@@ -156,7 +148,17 @@ export default function TruckForm({
 
         <input
           type="number"
-          step="1000"
+          step="any"
+          min="0"
+          placeholder="Công nợ đầu"
+          value={form.congNoDau}
+          onChange={(event) => onChange({ ...form, congNoDau: event.target.value })}
+          className="h-10 rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#0B7285]/30 focus:border-[#0B7285] focus:ring-4"
+        />
+
+        <input
+          type="number"
+          step="any"
           min="0"
           placeholder="Thanh toán"
           value={form.thanhToan}
@@ -173,7 +175,7 @@ export default function TruckForm({
         />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         <div>
           <p className="text-slate-500">Thành tiền</p>
           <p className="mt-1 font-semibold text-blue-700">{thanhTien.toLocaleString('vi-VN')} đ</p>
@@ -181,6 +183,10 @@ export default function TruckForm({
         <div>
           <p className="text-slate-500">Còn lại phiếu trước</p>
           <p className="mt-1 font-semibold text-slate-800">{previousRemain.toLocaleString('vi-VN')} đ</p>
+        </div>
+        <div>
+          <p className="text-slate-500">Công nợ đầu</p>
+          <p className="mt-1 font-semibold text-amber-700">{congNoDau.toLocaleString('vi-VN')} đ</p>
         </div>
         <div>
           <p className="text-slate-500">Công nợ</p>

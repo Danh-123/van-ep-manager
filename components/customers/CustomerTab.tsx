@@ -14,13 +14,8 @@ import {
   updateCustomer,
   type CustomerItem,
 } from '@/app/(dashboard)/employees/customer-actions';
-
-type CustomerFormValues = {
-  maKhachHang: string;
-  tenKhachHang: string;
-  soDienThoai: string;
-  diaChi: string;
-};
+import CustomerForm, { type CustomerFormValues } from '@/components/customers/CustomerForm';
+import { DeleteConfirmationModal } from '@/components/common/DeleteConfirmationModal';
 
 type ImportPreviewRow = {
   rowNumber: number;
@@ -75,9 +70,14 @@ export default function CustomerTab() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<CustomerItem | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePreviewData, setDeletePreviewData] = useState(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [isDeleteLoadingConfirm, setIsDeleteLoadingConfirm] = useState(false);
   const [formValues, setFormValues] = useState<CustomerFormValues>({
     maKhachHang: '',
     tenKhachHang: '',
+    loaiKhachHang: 'mua',
     soDienThoai: '',
     diaChi: '',
   });
@@ -112,7 +112,7 @@ export default function CustomerTab() {
 
   const openCreateModal = () => {
     setEditingCustomer(null);
-    setFormValues({ maKhachHang: '', tenKhachHang: '', soDienThoai: '', diaChi: '' });
+    setFormValues({ maKhachHang: '', tenKhachHang: '', loaiKhachHang: 'mua', soDienThoai: '', diaChi: '' });
     setError(null);
     setSuccess(null);
     setModalOpen(true);
@@ -123,6 +123,7 @@ export default function CustomerTab() {
     setFormValues({
       maKhachHang: item.maKhachHang,
       tenKhachHang: item.tenKhachHang,
+      loaiKhachHang: item.loaiKhachHang,
       soDienThoai: item.soDienThoai ?? '',
       diaChi: item.diaChi ?? '',
     });
@@ -143,6 +144,7 @@ export default function CustomerTab() {
       const payload = {
         maKhachHang: formValues.maKhachHang,
         tenKhachHang: formValues.tenKhachHang,
+        loaiKhachHang: formValues.loaiKhachHang,
         soDienThoai: formValues.soDienThoai,
         diaChi: formValues.diaChi,
       };
@@ -165,18 +167,28 @@ export default function CustomerTab() {
     });
   };
 
-  const handleDelete = (item: CustomerItem) => {
-    const confirmed = window.confirm(
-      `Bạn có chắc chắn muốn xóa khách hàng ${item.tenKhachHang}? Hành động này không thể hoàn tác.`,
-    );
+  const handleDelete = async (item: CustomerItem) => {
+    setDeletingId(item.id);
+    try {
+      const response = await fetch(`/api/customers/${item.id}/delete-preview`);
+      if (!response.ok) {
+        const data = await response.json();
+        setError(data.error || 'Lỗi lấy dữ liệu xóa');
+        return;
+      }
+      const data = await response.json();
+      setDeletePreviewData(data);
+      setDeleteOpen(true);
+    } catch (err) {
+      setError('Lỗi kết nối: ' + (err instanceof Error ? err.message : 'Không xác định'));
+    }
+  };
 
-    if (!confirmed) return;
-
-    setError(null);
-    setSuccess(null);
-
-    startTransition(async () => {
-      const result = await deleteCustomer(item.id);
+  const handleConfirmDelete = async () => {
+    if (deletingId === null) return;
+    setIsDeleteLoadingConfirm(true);
+    try {
+      const result = await deleteCustomer(deletingId);
       if (!result.success) {
         setError(result.error);
         return;
@@ -185,8 +197,19 @@ export default function CustomerTab() {
       setSuccess('Xóa khách hàng thành công.');
       const nextPage = rows.length === 1 && page > 1 ? page - 1 : page;
       setPage(nextPage);
-      await refreshCustomers();
-    });
+      await queryClient.invalidateQueries({ queryKey: ['customers'] });
+      setDeleteOpen(false);
+      setDeletePreviewData(null);
+      setDeletingId(null);
+    } finally {
+      setIsDeleteLoadingConfirm(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteOpen(false);
+    setDeletePreviewData(null);
+    setDeletingId(null);
   };
 
   const handleExportExcel = () => {
@@ -210,6 +233,7 @@ export default function CustomerTab() {
       worksheet.columns = [
         { header: 'Ma KH', key: 'maKhachHang', width: 16 },
         { header: 'Tên khách hàng', key: 'tenKhachHang', width: 30 },
+        { header: 'Loại', key: 'loaiKhachHang', width: 12 },
         { header: 'Số điện thoại', key: 'soDienThoai', width: 18 },
         { header: 'Địa chỉ', key: 'diaChi', width: 40 },
         { header: 'Ngày tạo', key: 'createdAt', width: 16 },
@@ -219,6 +243,7 @@ export default function CustomerTab() {
         worksheet.addRow({
           maKhachHang: row.maKhachHang,
           tenKhachHang: row.tenKhachHang,
+          loaiKhachHang: row.loaiKhachHang === 'ban' ? 'Bán' : 'Mua',
           soDienThoai: row.soDienThoai ?? '',
           diaChi: row.diaChi ?? '',
           createdAt: formatDate(row.createdAt),
@@ -402,6 +427,7 @@ export default function CustomerTab() {
                 <th className="px-4 py-3 font-medium">STT</th>
                 <th className="px-4 py-3 font-medium">Ma KH</th>
                 <th className="px-4 py-3 font-medium">Tên khách hàng</th>
+                <th className="px-4 py-3 font-medium">Loại</th>
                 <th className="px-4 py-3 font-medium">SĐT</th>
                 <th className="px-4 py-3 font-medium">Địa chỉ</th>
                 <th className="px-4 py-3 text-right font-medium">Hành động</th>
@@ -410,7 +436,7 @@ export default function CustomerTab() {
             <tbody>
               {!loading && rows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={6}>
+                  <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={7}>
                     Chưa có dữ liệu khách hàng.
                   </td>
                 </tr>
@@ -420,6 +446,17 @@ export default function CustomerTab() {
                     <td className="px-4 py-3">{(page - 1) * PAGE_SIZE + index + 1}</td>
                     <td className="px-4 py-3 font-medium text-slate-700">{row.maKhachHang}</td>
                     <td className="px-4 py-3">{row.tenKhachHang}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                          row.loaiKhachHang === 'ban'
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                        }`}
+                      >
+                        {row.loaiKhachHang === 'ban' ? 'Bán' : 'Mua'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">{row.soDienThoai ?? '-'}</td>
                     <td className="px-4 py-3">{row.diaChi ?? '-'}</td>
                     <td className="px-4 py-3">
@@ -569,45 +606,7 @@ export default function CustomerTab() {
               </button>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Ma KH</label>
-                <input
-                  value={formValues.maKhachHang}
-                  onChange={(event) => setFormValues((prev) => ({ ...prev, maKhachHang: event.target.value }))}
-                  placeholder="Để trống để tự động sinh"
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Tên khách hàng *</label>
-                <input
-                  value={formValues.tenKhachHang}
-                  onChange={(event) => setFormValues((prev) => ({ ...prev, tenKhachHang: event.target.value }))}
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">SDT</label>
-                <input
-                  value={formValues.soDienThoai}
-                  onChange={(event) => setFormValues((prev) => ({ ...prev, soDienThoai: event.target.value }))}
-                  className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Địa chỉ</label>
-                <textarea
-                  value={formValues.diaChi}
-                  onChange={(event) => setFormValues((prev) => ({ ...prev, diaChi: event.target.value }))}
-                  rows={3}
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none ring-[#2E7D32]/30 focus:border-[#2E7D32] focus:ring-4"
-                />
-              </div>
-            </div>
+            <CustomerForm value={formValues} onChange={setFormValues} isEditing={Boolean(editingCustomer)} />
 
             <div className="mt-5 flex justify-end gap-2">
               <button
@@ -630,6 +629,15 @@ export default function CustomerTab() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmationModal
+        open={deleteOpen}
+        loading={isDeleteLoadingConfirm}
+        data={deletePreviewData}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        type="customer"
+      />
     </div>
   );
 }

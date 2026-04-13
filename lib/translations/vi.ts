@@ -3,7 +3,7 @@ export const vi = {
     dashboard: 'Tổng quan',
     attendance: 'Chấm công',
     salary: 'Tính lương',
-    trucks: 'Xe hàng',
+    trucks: 'Mua hàng',
     debt: 'Công nợ',
     reports: 'Báo cáo',
     employees: 'Công nhân',
